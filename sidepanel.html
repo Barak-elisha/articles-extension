@@ -1,0 +1,64 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <link rel="stylesheet" href="sidepanel.css" />
+</head>
+<body>
+  <header class="app-header">
+    <div class="app-title">שומר מאמרים</div>
+  </header>
+
+  <section id="saveSection" class="card">
+    <label class="label" for="listSelect">רשימה פעילה</label>
+    <select id="listSelect" class="select"></select>
+    <button id="saveBtn" class="btn btn-primary">שמור את המאמר הנוכחי</button>
+    <label class="checkbox">
+      <input type="checkbox" id="aiToggle" />
+      <span>הוסף תקציר AI (אם נשמר מפתח)</span>
+    </label>
+    <div id="saveStatus" class="status"></div>
+  </section>
+
+  <section id="manageSection" class="card">
+    <div class="section-head">
+      <div class="label">ניהול רשימות</div>
+      <button id="exportBtn" class="btn btn-secondary btn-small">ייצוא ל-Excel</button>
+    </div>
+    <div class="row">
+      <input id="newListName" class="input" type="text" placeholder="שם רשימה חדשה" />
+      <button id="addListBtn" class="btn btn-secondary btn-small">הוסף</button>
+    </div>
+    <div id="listsContainer" class="lists"></div>
+  </section>
+
+  <section id="settingsSection" class="card">
+    <div class="label">הגדרות</div>
+    <div class="row">
+      <button id="chooseDirBtn" class="btn btn-secondary">בחר תיקייה לשמירת PDF</button>
+      <button id="clearDirBtn" class="btn btn-danger btn-small" title="בטל בחירת תיקייה">בטל</button>
+    </div>
+    <div id="dirStatus" class="status muted">לא נבחרה תיקייה.</div>
+  </section>
+
+  <section id="aiSection" class="card">
+    <div class="label">תקציר AI (Google AI Studio)</div>
+    <input id="apiKeyInput" class="input" type="password" placeholder="הזן את ה-API key מ-Google AI Studio" />
+    <input id="modelInput" class="input" type="text" placeholder="מודל (למשל gemini-2.0-flash)" />
+    <button id="saveApiBtn" class="btn btn-secondary btn-small">שמור מפתח</button>
+  </section>
+
+  <div id="detailView" class="detail hidden">
+    <button id="backBtn" class="btn btn-small">← חזרה</button>
+    <div id="detailBody"></div>
+  </div>
+
+  <script src="lib/xlsx.full.min.js"></script>
+  <script src="lib/jspdf.umd.min.js"></script>
+  <script src="storage.js"></script>
+  <script src="pdf-export.js"></script>
+  <script src="excel-export.js"></script>
+  <script src="sidepanel.js"></script>
+</body>
+</html>
