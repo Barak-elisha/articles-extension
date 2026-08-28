@@ -1,3 +1,19 @@
+function buildApaCitation(a) {
+  const title = (a.title || "(ללא כותרת)").trim();
+  let site = "";
+  try {
+    site = new URL(a.url || "").hostname.replace(/^www\./, "");
+  } catch (e) {}
+  const d = a.savedAt ? new Date(a.savedAt) : null;
+  const dateStr = d
+    ? d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
+    : "";
+  const hasDate = d ? " (" + dateStr + ")." : "";
+  const sitePart = site ? " " + site + "." : "";
+  const urlPart = a.url ? " " + a.url : "";
+  return (title + hasDate + sitePart + urlPart).trim();
+}
+
 function buildExcelBlob(articles, lists) {
   const XLSX = window.XLSX;
   const listName = {};
@@ -10,9 +26,10 @@ function buildExcelBlob(articles, lists) {
       ["רשימה"]: listName[a.listId] || "ללא רשימה",
       ["כותרת"]: a.title || "",
       ["תקציר AI"]: a.summary || "",
+      ["ציטוט APA"]: buildApaCitation(a),
       ["כתובת אתר"]: a.url || "",
       ["תאריך שמירה"]: a.savedAt ? new Date(a.savedAt).toLocaleString() : "",
-      ["גוף המאמר"]: a.content || "",
+      ["גוף המאמר"]: (a.content || "").slice(0, 32000),
     }));
 
   const wb = XLSX.utils.book_new();
