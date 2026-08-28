@@ -241,7 +241,7 @@
     }
   }
 
-  async function addList() {
+  async function onAddList() {
     const name = newListName.value.trim();
     if (!name) return;
     await addList(name);
@@ -392,8 +392,8 @@
   /* ---------- Events ---------- */
 
   saveBtn.addEventListener("click", saveCurrentArticle);
-  addListBtn.addEventListener("click", addList);
-  newListName.addEventListener("keydown", (e) => { if (e.key === "Enter") addList(); });
+  addListBtn.addEventListener("click", onAddList);
+  newListName.addEventListener("keydown", (e) => { if (e.key === "Enter") onAddList(); });
   exportBtn.addEventListener("click", exportExcel);
   chooseDirBtn.addEventListener("click", chooseDir);
   clearDirBtn.addEventListener("click", clearDir);
