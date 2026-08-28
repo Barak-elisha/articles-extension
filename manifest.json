@@ -3,7 +3,6 @@
   "name": "שומר מאמרים (Article Saver)",
   "version": "1.0.0",
   "description": "שמור מאמרים לרשימות, צור קבצי PDF לתיקייה וייצא ל-Excel.",
-  "default_locale": "he",
   "permissions": [
     "sidePanel",
     "activeTab",
