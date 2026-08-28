@@ -12,6 +12,7 @@ function generateArticlePdfBlob(article) {
   const margin = 15;
   const pageWidth = 210;
   const maxWidth = pageWidth - margin * 2;
+  const pageHeight = 297 - margin;
   let y = margin;
 
   doc.setFont("helvetica", "bold");
@@ -63,7 +64,6 @@ function generateArticlePdfBlob(article) {
   doc.setFontSize(11);
   const body = article.content || "";
   const bodyLines = doc.splitTextToSize(body, maxWidth);
-  let pageHeight = 297 - margin;
   for (let i = 0; i < bodyLines.length; i++) {
     const line = bodyLines[i];
     const lineHeight = 5;
