@@ -376,22 +376,6 @@
     });
   }
 
-  // In the full window, size the middle (summary/notes/chat) vs. the full-text
-  // panel according to how long the article text and notes/summary are.
-  function sizeFullPanels(a) {
-    if (!isFull) return;
-    let midFr, textFr;
-    const t = (a.content || "").length;
-    const s = Math.max((a.summary || "").length, (a.notes || "").length, 300);
-    if (!t) { midFr = 5; textFr = 5; }
-    else {
-      const ratio = t / (t + s);
-      textFr = Math.max(3, Math.min(8, Math.round(ratio * 10)));
-      midFr = Math.max(2, 10 - textFr);
-    }
-    detailBody.style.gridTemplateColumns = midFr + "fr " + textFr + "fr";
-  }
-
   // Binds the detail column height to the full (natural) height of the lists
   // column, so the page ends where the lists end while the summary, notes,
   // chat and full text scroll internally when there is not enough room.
@@ -749,7 +733,6 @@
     detailBody.appendChild(content);
     detailView.classList.remove("hidden");
     if (isFull) {
-      sizeFullPanels(a);
       fitDetailToLists();
     }
     if (!isFull) {
