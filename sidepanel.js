@@ -35,8 +35,10 @@
   }
 
   // Whether a block element has no visible text content (a blank line in the editor).
+  // Non-breaking spaces (\u00a0) are also treated as empty — contentEditable
+  // browsers often use &nbsp; to render blank/whitespace-only lines.
   function isEmptyBlock(el) {
-    return !String(el.textContent || "").trim();
+    return !String(el.textContent || "").replace(/\u00a0/g, " ").trim();
   }
 
   function collectElements(root, out) {
@@ -60,7 +62,7 @@
     const prune = (container) => {
       for (const child of Array.from(container.childNodes)) {
         if (child.nodeType === 3) {
-          if (!(child.nodeValue || "").trim() && isEmptyBlock(container)) {
+          if (!String(child.nodeValue || "").replace(/\u00a0/g, " ").trim() && isEmptyBlock(container)) {
             container.removeChild(child);
           }
           continue;
