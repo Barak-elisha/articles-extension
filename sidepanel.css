@@ -236,6 +236,7 @@ body {
 .chat-ai { background: #eef1f7; color: inherit; align-self: flex-end; }
 .chat-input-row { display: flex; gap: 6px; margin-top: 6px; }
 .chat-input-row .input { flex: 1; min-width: 0; }
+.chat-input-row .btn { width: auto; flex-shrink: 0; }
 .rich-text:empty::before {
   content: attr(data-placeholder);
   color: var(--muted);
