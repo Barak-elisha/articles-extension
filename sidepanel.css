@@ -149,13 +149,42 @@ body {
   margin-bottom: 4px;
   font-size: 13px;
 }
+.summary-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  margin-bottom: 4px;
+}
+.summary-head .summary-label { margin-bottom: 0; }
 
 .notes-box { margin-top: 10px; }
-.notes-input {
-  min-height: 80px;
-  resize: vertical;
+.notes-toolbar {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 4px;
+}
+.notes-tb {
+  border: 1px solid var(--border);
+  background: var(--card);
+  padding: 3px 8px;
+  font-size: 13px;
+  font-weight: 700;
+}
+.notes-tb:hover { background: #eef1f7; }
+.rich-text {
+  min-height: 140px;
+  resize: none;
+  overflow: auto;
   margin-bottom: 0;
   white-space: pre-wrap;
+  cursor: text;
+  line-height: 1.5;
+}
+.rich-text:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+  pointer-events: none;
 }
 
 /* Lists */

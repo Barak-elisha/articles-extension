@@ -23,6 +23,8 @@
   const modelInput = $("#modelInput");
   const saveApiBtn = $("#saveApiBtn");
   const aiToggle = $("#aiToggle");
+  const aiSettingsToggle = $("#aiSettingsToggle");
+  const aiSettings = $("#aiSettings");
 
   async function loadAll() {
     lists = await getLists();
@@ -216,8 +218,6 @@
       render();
       if (article.summary) {
         showDetail(article);
-        const box = detailView.querySelector(".detail-summary");
-        if (box) box.scrollIntoView({ behavior: "smooth", block: "center" });
       }
       if (saveStatus.className !== "status error") {
         saveStatus.className = "status success";
@@ -431,35 +431,98 @@
     detailBody.appendChild(title);
     detailBody.appendChild(url);
     detailBody.appendChild(meta);
-    if (a.summary) {
-      const summaryBox = document.createElement("div");
-      summaryBox.className = "detail-summary";
-      const sTitle = document.createElement("div");
-      sTitle.className = "summary-label";
-      sTitle.textContent = "תקציר AI";
-      const sText = document.createElement("div");
-      sText.className = "summary-text";
-      sText.innerHTML = renderMarkdown(a.summary);
-      summaryBox.appendChild(sTitle);
-      summaryBox.appendChild(sText);
-      detailBody.appendChild(summaryBox);
-    }
-    detailBody.appendChild(content);
+    const summaryBox = document.createElement("div");
+    summaryBox.className = "detail-summary";
+    const headRow = document.createElement("div");
+    headRow.className = "summary-head";
+    const sTitle = document.createElement("div");
+    sTitle.className = "summary-label";
+    sTitle.textContent = "תקציר AI";
+    const regenBtn = document.createElement("button");
+    regenBtn.type = "button";
+    regenBtn.className = "btn btn-secondary btn-small";
+    regenBtn.textContent = "צור מחדש";
+    headRow.appendChild(sTitle);
+    headRow.appendChild(regenBtn);
+    summaryBox.appendChild(headRow);
+    const sText = document.createElement("div");
+    sText.className = "summary-text";
+    if (a.summary) sText.innerHTML = renderMarkdown(a.summary);
+    const sumStatus = document.createElement("div");
+    sumStatus.className = "status muted";
+    summaryBox.appendChild(sText);
+    summaryBox.appendChild(sumStatus);
+    detailBody.appendChild(summaryBox);
 
+    regenBtn.addEventListener("click", async () => {
+      if (!aiApiKey) {
+        sumStatus.className = "status error";
+        sumStatus.textContent = "אין API key. הזינו אותו בהגדרות.";
+        return;
+      }
+      regenBtn.disabled = true;
+      sumStatus.className = "status muted";
+      sumStatus.textContent = "מפיק תקציר מחדש...";
+      try {
+        const resp = await chrome.runtime.sendMessage({
+          type: "GENERATE_SUMMARY",
+          apiKey: aiApiKey,
+          content: a.content,
+          title: a.title,
+          model: aiModel,
+        });
+        if (!resp || !resp.ok) throw new Error((resp && resp.error) || "שגיאה בתקציר");
+        a.summary = resp.summary;
+        await updateArticle(a.id, { summary: resp.summary });
+        articles = await getArticles();
+        sText.innerHTML = renderMarkdown(resp.summary);
+        sumStatus.className = "status success";
+        sumStatus.textContent = "התקציר עודכן ✓";
+        setTimeout(() => { sumStatus.textContent = ""; }, 2500);
+      } catch (err) {
+        sumStatus.className = "status error";
+        sumStatus.textContent = "שגיאה: " + err.message;
+      } finally {
+        regenBtn.disabled = false;
+      }
+    });
     const notesBox = document.createElement("div");
     notesBox.className = "notes-box";
     const nTitle = document.createElement("div");
     nTitle.className = "summary-label";
     nTitle.textContent = "הערות שלי";
-    const notes = document.createElement("textarea");
-    notes.className = "input notes-input";
-    notes.placeholder = "הוסף הערות אישיות...";
-    notes.value = a.notes || "";
+    const notes = document.createElement("div");
+    notes.className = "input notes-input rich-text";
+    notes.contentEditable = "true";
+    notes.innerHTML = a.notes || "";
+    notes.dataset.placeholder = "הוסף הערות אישיות...";
+    const toolbar = document.createElement("div");
+    toolbar.className = "notes-toolbar";
+    const cmds = [
+      { label: "ב", cmd: "bold", title: "מודגש" },
+      { label: "I", cmd: "italic", title: "נטוי" },
+      { label: "•≡", cmd: "insertUnorderedList", title: "רשימת תבליטים" },
+      { label: "1≡", cmd: "insertOrderedList", title: "רשימה ממוספרת" },
+    ];
+    for (const c of cmds) {
+      const b = document.createElement("button");
+      b.type = "button";
+      b.textContent = c.label;
+      b.title = c.title;
+      b.className = "icon-btn notes-tb";
+      b.addEventListener("mousedown", (e) => e.preventDefault());
+      b.addEventListener("click", () => {
+        notes.focus();
+        document.execCommand(c.cmd, false, null);
+        notes.focus();
+      });
+      toolbar.appendChild(b);
+    }
     const noteStatus = document.createElement("div");
     noteStatus.className = "status muted";
     const saveNotes = async () => {
       try {
-        await updateArticle(a.id, { notes: notes.value });
+        await updateArticle(a.id, { notes: notes.innerHTML });
         articles = await getArticles();
         noteStatus.className = "status success";
         noteStatus.textContent = "ההערות נשמרו ✓";
@@ -469,12 +532,18 @@
         noteStatus.textContent = "שמירה נכשלה: " + e.message;
       }
     };
-    notes.addEventListener("change", saveNotes);
+    notes.addEventListener("blur", saveNotes);
     notesBox.appendChild(nTitle);
+    notesBox.appendChild(toolbar);
     notesBox.appendChild(notes);
     notesBox.appendChild(noteStatus);
     detailBody.appendChild(notesBox);
+    detailBody.appendChild(content);
     detailView.classList.remove("hidden");
+    requestAnimationFrame(() => {
+      const box = detailView.querySelector(".detail-summary");
+      (box || detailView).scrollIntoView({ behavior: "smooth", block: "center" });
+    });
   }
 
   /* ---------- Events ---------- */
@@ -486,6 +555,7 @@
   chooseDirBtn.addEventListener("click", chooseDir);
   clearDirBtn.addEventListener("click", clearDir);
   saveApiBtn.addEventListener("click", saveAiSettings);
+  aiSettingsToggle.addEventListener("click", () => aiSettings.classList.toggle("hidden"));
   backBtn.addEventListener("click", () => detailView.classList.add("hidden"));
 
   listSelect.addEventListener("change", async () => {

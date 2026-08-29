@@ -15,20 +15,21 @@
     <select id="listSelect" class="select"></select>
     <button id="saveBtn" class="btn btn-primary">שמור את המאמר הנוכחי</button>
     <label class="checkbox">
-      <input type="checkbox" id="aiToggle" />
+      <input type="checkbox" id="aiToggle" checked />
       <span>הוסף תקציר AI (אם נשמר מפתח)</span>
     </label>
     <div id="saveStatus" class="status"></div>
   </section>
 
   <section id="manageSection" class="card">
-    <div class="section-head">
-      <div class="label">ניהול רשימות</div>
-      <button id="exportBtn" class="btn btn-secondary btn-small">ייצוא ל-Excel</button>
-    </div>
+    <div class="label">ניהול רשימות</div>
     <div class="row">
       <input id="newListName" class="input" type="text" placeholder="שם רשימה חדשה" />
       <button id="addListBtn" class="btn btn-secondary btn-small">הוסף</button>
+    </div>
+    <div class="section-head">
+      <div class="label">הרשימות שלי</div>
+      <button id="exportBtn" class="btn btn-secondary btn-small">ייצוא ל-Excel</button>
     </div>
     <div id="listsContainer" class="lists"></div>
   </section>
@@ -43,10 +44,13 @@
   </section>
 
   <section id="aiSection" class="card">
-    <div class="label">תקציר AI (Google AI Studio)</div>
-    <input id="apiKeyInput" class="input" type="password" placeholder="הזן את ה-API key מ-Google AI Studio" />
-    <input id="modelInput" class="input" type="text" placeholder="מודל (למשל gemini-2.0-flash)" />
-    <button id="saveApiBtn" class="btn btn-secondary btn-small">שמור מפתח</button>
+    <button id="aiSettingsToggle" class="btn btn-secondary btn-small">הגדרות AI</button>
+    <div id="aiSettings" class="hidden">
+      <div class="label">תקציר AI (Google AI Studio)</div>
+      <input id="apiKeyInput" class="input" type="password" placeholder="הזן את ה-API key מ-Google AI Studio" />
+      <input id="modelInput" class="input" type="text" placeholder="מודל (למשל gemini-2.0-flash)" />
+      <button id="saveApiBtn" class="btn btn-secondary btn-small">שמור מפתח</button>
+    </div>
   </section>
 
   <div id="detailView" class="detail hidden">
@@ -54,7 +58,8 @@
     <div id="detailBody"></div>
   </div>
 
-  <script src="lib/xlsx.full.min.js"></script>
+  <script src="lib/cpexcel.js"></script>
+  <script src="lib/xlsx-js-style.min.js"></script>
   <script src="lib/jspdf.umd.min.js"></script>
   <script src="storage.js"></script>
   <script src="pdf-export.js"></script>
