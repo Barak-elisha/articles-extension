@@ -16,14 +16,91 @@
     return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
   }
 
+  const BLOCK_RE =
+    /^(address|article|aside|blockquote|dd|div|dl|dt|fieldset|figcaption|figure|footer|form|h[1-6]|header|hr|li|main|nav|ol|p|pre|section|table|tbody|td|tfoot|th|thead|tr|ul)$/i;
+
   // Collapses 2+ consecutive blank lines into a single blank line and trims
-  // trailing whitespace, so the full article text stays tidy.
+  // trailing whitespace, so the full article text stays tidy. Plain text is
+  // handled with line-based regexes; the contentEditable editor stores sanitized
+  // HTML, where blank lines are empty block elements (e.g. <div>\t</div>) that the
+  // regexes cannot see, so those go through the DOM-based normalizeHtml instead.
   function normalizeBody(s) {
-    return String(s || "")
+    const str = String(s || "");
+    if (/<[a-z][\s\S]*>/i.test(str)) return normalizeHtml(str);
+    return str
       .replace(/\r\n/g, "\n")
-      .replace(/\n{3,}/g, "\n\n")
       .replace(/[ \t]+$/gm, "")
+      .replace(/\n{3,}/g, "\n\n")
       .replace(/\s+$/, "");
+  }
+
+  // Whether a block element has no visible text content (a blank line in the editor).
+  function isEmptyBlock(el) {
+    return !String(el.textContent || "").trim();
+  }
+
+  function collectElements(root, out) {
+    for (const child of Array.from(root.childNodes)) {
+      if (child.nodeType === 1) {
+        out.push(child);
+        collectElements(child, out);
+      }
+    }
+    return out;
+  }
+
+  // DOM-based cleanup for the sanitized HTML of the full-text editor: strips
+  // whitespace-only filler (e.g. the tabs inside <div>\t\t</div>), collapses runs of
+  // 3+ consecutive empty block elements to 2 (mirroring the plain-text \n{3,} -> \n\n
+  // rule), collapses runs of 3+ consecutive <br>, and drops trailing empty blocks.
+  function normalizeHtml(html) {
+    const doc = new DOMParser().parseFromString(html, "text/html");
+    const root = doc.body || doc.documentElement;
+
+    const prune = (container) => {
+      for (const child of Array.from(container.childNodes)) {
+        if (child.nodeType === 3) {
+          if (!(child.nodeValue || "").trim() && isEmptyBlock(container)) {
+            container.removeChild(child);
+          }
+          continue;
+        }
+        if (child.nodeType !== 1) continue;
+        prune(child);
+      }
+    };
+    prune(root);
+
+    const blocks = collectElements(root, []).filter((n) => BLOCK_RE.test(n.tagName));
+
+    let run = 0;
+    blocks.forEach((b) => {
+      if (isEmptyBlock(b)) {
+        run++;
+        if (run > 2) b.parentNode.removeChild(b);
+      } else {
+        run = 0;
+      }
+    });
+
+    run = 0;
+    collectElements(root, []).forEach((n) => {
+      if (n.tagName === "BR") {
+        run++;
+        if (run > 2) n.parentNode.removeChild(n);
+      } else {
+        run = 0;
+      }
+    });
+
+    let last = root.lastElementChild;
+    while (last && BLOCK_RE.test(last.tagName) && isEmptyBlock(last)) {
+      const prev = last.previousElementSibling;
+      last.parentNode.removeChild(last);
+      last = prev;
+    }
+
+    return root.innerHTML.trim();
   }
 
   // Auto-aligns the full text: right-to-left for Hebrew/Arabic, otherwise left.
