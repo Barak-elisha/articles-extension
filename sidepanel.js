@@ -287,11 +287,13 @@
   }
 
   async function exportExcel() {
-    if (!articles.length) {
+    const freshLists = await getLists();
+    const freshArticles = await getArticles();
+    if (!freshArticles.length) {
       alert("אין מאמרים לייצוא.");
       return;
     }
-    const blob = await buildExcelBlob(articles, lists);
+    const blob = await buildExcelBlob(freshArticles, freshLists);
     try {
       if (window.showSaveFilePicker) {
         const handle = await window.showSaveFilePicker({
@@ -362,6 +364,22 @@
   }
 
   /* ---------- Detail view ---------- */
+
+  // In the full window, size the middle (summary/notes/chat) vs. the full-text
+  // panel according to how long the article text and notes/summary are.
+  function sizeFullPanels(a) {
+    if (!isFull) return;
+    let midFr, textFr;
+    const t = (a.content || "").length;
+    const s = Math.max((a.summary || "").length, (a.notes || "").length, 300);
+    if (!t) { midFr = 5; textFr = 5; }
+    else {
+      const ratio = t / (t + s);
+      textFr = Math.max(3, Math.min(8, Math.round(ratio * 10)));
+      midFr = Math.max(2, 10 - textFr);
+    }
+    detailView.style.gridTemplateColumns = midFr + "fr " + textFr + "fr";
+  }
 
   function mdInline(s) {
     s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
@@ -683,6 +701,7 @@
     detailBody.appendChild(chatBox);
     detailBody.appendChild(content);
     detailView.classList.remove("hidden");
+    if (isFull) sizeFullPanels(a);
     if (!isFull) {
       requestAnimationFrame(() => {
         const box = detailView.querySelector(".detail-summary");
