@@ -17,9 +17,6 @@
   const newListName = $("#newListName");
   const addListBtn = $("#addListBtn");
   const exportBtn = $("#exportBtn");
-  const chooseDirBtn = $("#chooseDirBtn");
-  const clearDirBtn = $("#clearDirBtn");
-  const dirStatus = $("#dirStatus");
   const detailView = $("#detailView");
   const detailBody = $("#detailBody");
   const backBtn = $("#backBtn");
@@ -45,7 +42,6 @@
     if (activeListId) await setSetting("activeListId", activeListId);
     await loadAiSettings();
     render();
-    renderDirStatus();
   }
 
   async function loadAiSettings() {
@@ -223,7 +219,6 @@
           }
         }
       }
-      await maybeSavePdf(article);
       articles = await getArticles();
       render();
       if (article.summary) {
@@ -236,23 +231,6 @@
     } catch (err) {
       saveStatus.className = "status error";
       saveStatus.textContent = "שגיאה: " + err.message;
-    }
-  }
-
-  async function maybeSavePdf(article) {
-    const handle = await loadDirectoryHandle();
-    if (!handle) return;
-    const blob = generateArticlePdfBlob(article);
-    const filename = sanitizeFilename(
-      new Date().toISOString().slice(0, 10) + " - " + (article.title || "article")
-    ) + ".pdf";
-    try {
-      const fileHandle = await handle.getFileHandle(filename, { create: true });
-      const writable = await fileHandle.createWritable();
-      await writable.write(blob);
-      await writable.close();
-    } catch (e) {
-      console.warn("PDF save to folder failed:", e);
     }
   }
 
@@ -321,38 +299,6 @@
     } catch (e) {
       if (e && e.name === "AbortError") return; // user cancelled
       alert("שגיאה בייצוא: " + e.message);
-    }
-  }
-
-  async function chooseDir() {
-    try {
-      if (!window.showDirectoryPicker) {
-        alert("הדפדפן לא תומך בבחירת תיקייה. השתמש ב-Chrome העדכני.");
-        return;
-      }
-      const handle = await window.showDirectoryPicker({ mode: "readwrite" });
-      await saveDirectoryHandle(handle);
-      renderDirStatus();
-    } catch (e) {
-      if (e && e.name === "AbortError") return;
-      alert("שגיאה בבחירת תיקייה: " + e.message);
-    }
-  }
-
-  async function clearDir() {
-    if (!confirm("לבטל את בחירת התיקייה?")) return;
-    await clearDirectoryHandle();
-    renderDirStatus();
-  }
-
-  async function renderDirStatus() {
-    const handle = await loadDirectoryHandle();
-    if (handle) {
-      dirStatus.className = "status success";
-      dirStatus.textContent = "התיקייה נבחרה: " + handle.name;
-    } else {
-      dirStatus.className = "status muted";
-      dirStatus.textContent = "לא נבחרה תיקייה.";
     }
   }
 
@@ -755,15 +701,12 @@
   addListBtn.addEventListener("click", onAddList);
   newListName.addEventListener("keydown", (e) => { if (e.key === "Enter") onAddList(); });
   exportBtn.addEventListener("click", exportExcel);
-  chooseDirBtn.addEventListener("click", chooseDir);
-  clearDirBtn.addEventListener("click", clearDir);
   saveApiBtn.addEventListener("click", saveAiSettings);
   aiSettingsToggle.addEventListener("click", () => aiSettings.classList.toggle("hidden"));
   settingsBtn.addEventListener("click", () => {
     settingsView.classList.remove("hidden");
     mainView.classList.add("hidden");
     detailView.classList.add("hidden");
-    renderDirStatus();
   });
   settingsBackBtn.addEventListener("click", () => {
     settingsView.classList.add("hidden");

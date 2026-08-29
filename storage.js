@@ -156,20 +156,3 @@ async function setSetting(key, value) {
   const db = await openDB();
   return tx(db, "settings", "readwrite", (os) => os.put({ key, value }));
 }
-
-/* ---------------- IndexedDB handle helper ---------------- */
-
-// Saves/loads a FileSystemDirectoryHandle in indexedDB (structured clone)
-async function saveDirectoryHandle(handle) {
-  await setSetting("directoryHandle", handle);
-}
-
-async function loadDirectoryHandle() {
-  const s = await getSetting("directoryHandle");
-  return s ? s.value : null;
-}
-
-async function clearDirectoryHandle() {
-  const db = await openDB();
-  await tx(db, "settings", "readwrite", (os) => os.delete("directoryHandle"));
-}
