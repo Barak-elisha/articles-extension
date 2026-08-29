@@ -664,11 +664,15 @@
 
   // Binds the detail column height to the full (natural) height of the lists
   // column, so the page ends where the lists end while the summary, notes,
-  // chat and full text scroll internally when there is not enough room.
+  // chat and full text scroll internally when there is not enough room. When
+  // the lists are too short to fill the viewport, the detail column (and the
+  // AI chat at its end) stretches down to the bottom of the page instead.
   function fitDetailToLists() {
     if (!isFull) return;
     const mainH = mainView.getBoundingClientRect().height;
-    detailBody.style.height = Math.max(240, mainH) + "px";
+    const rect = detailBody.getBoundingClientRect();
+    const minToBottom = window.innerHeight - rect.top - 16;
+    detailBody.style.height = Math.max(mainH, minToBottom, 240) + "px";
   }
 
   function mdInline(s) {
