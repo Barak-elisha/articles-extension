@@ -93,6 +93,19 @@
     </div>
   </div>
 
+  <div id="chatDelModal" class="modal-overlay hidden">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title" data-i18n="chatDeleteConfirmTitle">Delete message</div>
+      <div class="modal-body" data-i18n="chatDeleteConfirm">Delete this message from the chat?</div>
+      <div class="modal-actions">
+        <button id="chatDelConfirmBtn" class="btn btn-danger" data-i18n="chatDeleteConfirmDelete">Yes, delete</button>
+        <button id="chatDelCancelBtn" class="btn btn-secondary" data-i18n="chatDeleteConfirmCancel">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="chatContextMenu" class="ctx-menu hidden"></div>
+
   <script src="lib/jszip.min.js"></script>
   <script src="lib/cpexcel.js"></script>
   <script src="lib/xlsx-js-style.min.js"></script>

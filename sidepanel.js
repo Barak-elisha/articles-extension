@@ -157,6 +157,62 @@
   const dupUpdateBtn = $("#dupUpdateBtn");
   const dupCancelBtn = $("#dupCancelBtn");
 
+  const chatCtxMenu = $("#chatContextMenu");
+  const chatDelModal = $("#chatDelModal");
+  const chatDelConfirmBtn = $("#chatDelConfirmBtn");
+  const chatDelCancelBtn = $("#chatDelCancelBtn");
+  let chatMenuIdx = null;
+  let chatConfirmIdx = null;
+  let chatDeleteFn = null;
+
+  const closeChatMenu = () => {
+    chatCtxMenu.classList.add("hidden");
+    chatCtxMenu.innerHTML = "";
+    chatMenuIdx = null;
+  };
+
+  const openChatMenu = (e, idx) => {
+    closeChatMenu();
+    chatMenuIdx = idx;
+    const item = document.createElement("button");
+    item.type = "button";
+    item.className = "ctx-menu-item";
+    item.textContent = t("chatMenuDelete") || "Delete message";
+    item.addEventListener("click", () => {
+      chatConfirmIdx = chatMenuIdx;
+      closeChatMenu();
+      applyI18n();
+      chatDelModal.classList.remove("hidden");
+    });
+    chatCtxMenu.appendChild(item);
+    const maxLeft = window.innerWidth - 160;
+    const maxTop = window.innerHeight - 50;
+    chatCtxMenu.style.left = Math.min(e.clientX, maxLeft) + "px";
+    chatCtxMenu.style.top = Math.min(e.clientY, maxTop) + "px";
+    chatCtxMenu.classList.remove("hidden");
+  };
+
+  const hideChatConfirm = () => {
+    chatDelModal.classList.add("hidden");
+    chatConfirmIdx = null;
+  };
+
+  chatDelConfirmBtn.addEventListener("click", () => {
+    const idx = chatConfirmIdx;
+    hideChatConfirm();
+    if (chatDeleteFn) chatDeleteFn(idx);
+  });
+  chatDelCancelBtn.addEventListener("click", hideChatConfirm);
+  chatDelModal.addEventListener("click", (e) => {
+    if (e.target === chatDelModal) hideChatConfirm();
+  });
+  document.addEventListener("mousedown", (e) => {
+    if (!chatCtxMenu.classList.contains("hidden") && !chatCtxMenu.contains(e.target)) {
+      closeChatMenu();
+    }
+  });
+  window.addEventListener("blur", closeChatMenu);
+
   let dupResolve = null;
   function promptDuplicateSave() {
     applyI18n();
@@ -1126,24 +1182,27 @@
         div.className = "chat-msg " + (m.role === "user" ? "chat-user" : "chat-ai");
         div.innerHTML = renderMarkdown(m.text);
         div.title = t("chatDeleteHint");
-        div.addEventListener("contextmenu", async (e) => {
+        div.addEventListener("contextmenu", (e) => {
           e.preventDefault();
-          const arr = (a.chat || []).slice();
-          if (idx >= arr.length) return;
-          arr.splice(idx, 1);
-          a.chat = arr;
-          try {
-            await updateArticle(a.id, { chat: arr });
-            articles = await getArticles();
-          } catch (err) {
-            chatStatus.className = "status error";
-            chatStatus.textContent = t("chatDeleteFailed") + err.message;
-          }
-          renderChat();
+          openChatMenu(e, idx);
         });
         chatMessages.appendChild(div);
       });
       chatMessages.scrollTop = chatMessages.scrollHeight;
+    };
+    chatDeleteFn = async (idx) => {
+      const arr = (a.chat || []).slice();
+      if (idx >= arr.length) return;
+      arr.splice(idx, 1);
+      a.chat = arr;
+      try {
+        await updateArticle(a.id, { chat: arr });
+        articles = await getArticles();
+      } catch (err) {
+        chatStatus.className = "status error";
+        chatStatus.textContent = t("chatDeleteFailed") + err.message;
+      }
+      renderChat();
     };
     renderChat();
 
