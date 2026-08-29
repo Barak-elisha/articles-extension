@@ -5,6 +5,12 @@ A Chrome extension (Manifest V3, `version 1.1.0`) for saving articles to lists, 
 - **Full privacy** — all data is stored locally in the browser's IndexedDB; no server involved.
 - Official repository: `https://github.com/Barak-elisha/articles-extension.git` (branch `main`).
 
+<p align="center">
+  <img src="Screenshots/Screenshot%202026-08-30%20at%200.00.39.png" alt="Full-window view: lists on the left, AI summary + notes + chat in the middle, and the full article text with highlights on the right" width="720" />
+  <br />
+  <em>Full-window mode — lists · summary/notes/chat · full text with highlight markers</em>
+</p>
+
 ## Features
 
 - **Side panel** opens on the right, and opens automatically when the extension icon is clicked.
@@ -21,6 +27,12 @@ A Chrome extension (Manifest V3, `version 1.1.0`) for saving articles to lists, 
 - **Excel export** — an "All articles" sheet plus one sheet per list, with rich text, clickable links, an APA citation and an AI-chat column.
 - **AI settings** — API key from Google AI Studio; on saving the key the extension fetches all available Gemini models from Google's API and lets you pick one from a dropdown (default: `gemini-2.0-flash`).
 - **Interface language** — switch between English and Hebrew in Settings (English is the default; the choice is persisted and also drives the AI output language and the Excel headers).
+
+<p align="center">
+  <img src="Screenshots/Screenshot%202026-08-29%20at%2023.45.54.png" alt="Side panel in English: article list and the Export to Excel button" width="340" />
+  <br />
+  <em>The side panel in English, with the article list and the Export to Excel button</em>
+</p>
 
 ## Prerequisites & Compatibility
 
@@ -72,6 +84,22 @@ The extension talks to Google Gemini (v1beta `generateContent`) in two modes:
 An API key is required. The "Add AI summary" checkbox controls whether every save generates a summary automatically.
 
 **Model dropdown** — when you save an API key (or click **Refresh models**), the panel calls Google's Gemini `models` endpoint with your key and fills the **Model** dropdown with every available Gemini model (names are filtered to `gemini-*` and sorted). Your previously chosen model stays selected if it is still available; otherwise `gemini-2.0-flash` is chosen by default. The chosen model is stored as `geminiModel`.
+
+<p align="center">
+  <img src="Screenshots/Screenshot%202026-08-29%20at%2023.48.11.png" alt="Chat answering that the text is a review article, grounded in the article content" width="340" />
+  <br />
+  <em>The chat stays grounded in the article — e.g. clarifying that the text is a review article rather than inventing details</em>
+</p>
+
+### Interface language (i18n)
+
+The interface fully supports Hebrew with RTL layout — including the article text, AI output and Excel headers.
+
+<p align="center">
+  <img src="Screenshots/Screenshot%202026-08-29%20at%2023.41.25.png" alt="The extension interface in Hebrew with RTL layout" width="340" />
+  <br />
+  <em>Hebrew (עברית) interface with full RTL alignment</em>
+</p>
 
 ### Security & API key
 

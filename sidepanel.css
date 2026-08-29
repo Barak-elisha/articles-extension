@@ -384,6 +384,10 @@ body {
     overflow: hidden;
   }
   body.full #detailBody .detail-title-row { grid-column: 1 / -1; }
+  body.full #detailBody .detail-title {
+    font-size: 15px;
+    font-weight: 700;
+  }
   body.full #detailBody .detail-url { grid-column: 1 / -1; }
   body.full #detailBody > .status { grid-column: 1 / -1; }
   body.full #detailBody .detail-mid {
@@ -396,11 +400,11 @@ body {
   }
   body.full #detailBody .detail-mid > * { flex: 0 1 auto; min-height: 0; margin-top: 0; margin-bottom: 0; }
   body.full #detailBody .detail-mid .chat-box { flex: 1 1 auto; }
-  body.full #detailBody .detail-summary { max-height: 42%; overflow: auto; min-height: 0; }
-  body.full #detailBody .notes-box { display: flex; flex-direction: column; overflow: hidden; }
-  body.full #detailBody .notes-input { flex: 1; min-height: 140px; }
-  body.full #detailBody .chat-box { display: flex; flex-direction: column; overflow: hidden; }
-  body.full #detailBody .chat-messages { height: auto; flex: 1; min-height: 220px; }
+  body.full #detailBody .detail-summary { max-height: 42%; overflow: auto; min-height: 180px; }
+  body.full #detailBody .notes-box { display: flex; flex-direction: column; overflow: hidden; min-height: 280px; }
+  body.full #detailBody .notes-input { flex: 1; min-height: 0; }
+  body.full #detailBody .chat-box { display: flex; flex-direction: column; overflow: hidden; min-height: 400px; }
+  body.full #detailBody .chat-messages { height: auto; flex: 1; min-height: 0; }
   body.full #detailBody .content-panel {
     grid-column: 2;
     grid-row: 4;

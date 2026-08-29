@@ -666,13 +666,26 @@
   // column, so the page ends where the lists end while the summary, notes,
   // chat and full text scroll internally when there is not enough room. When
   // the lists are too short to fill the viewport, the detail column (and the
-  // AI chat at its end) stretches down to the bottom of the page instead.
+  // AI chat at its end) stretches down to the bottom of the page instead. It
+  // is never shorter than the sum of each panel's own minimum height, so the
+  // summary, notes and chat each keep their minimum without squeezing others.
   function fitDetailToLists() {
     if (!isFull) return;
     const mainH = mainView.getBoundingClientRect().height;
     const rect = detailBody.getBoundingClientRect();
     const minToBottom = window.innerHeight - rect.top - 16;
-    detailBody.style.height = Math.max(mainH, minToBottom, 240) + "px";
+
+    let colMin = 0;
+    const mid = detailBody.querySelector(".detail-mid");
+    if (mid) {
+      mid.querySelectorAll(".detail-summary, .notes-box, .chat-box").forEach((el) => {
+        colMin += parseInt(getComputedStyle(el).minHeight, 10) || 0;
+      });
+      colMin += 24; // two 12px gaps between the three panels
+    }
+    const beforeMid = detailBody.offsetHeight - (mid ? mid.offsetHeight : 0);
+
+    detailBody.style.height = Math.max(mainH, minToBottom, beforeMid + colMin, 240) + "px";
   }
 
   function mdInline(s) {
