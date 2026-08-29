@@ -20,6 +20,14 @@ function buildApaCitation(a) {
   return (title + hasDate + sitePart + urlPart).trim();
 }
 
+// Formats the saved AI chat as a readable dialogue ("אני:" / "AI:").
+function chatToText(chat) {
+  if (!Array.isArray(chat) || !chat.length) return "";
+  return chat
+    .map((m) => (m.role === "user" ? "אני" : "AI") + ": " + (m.text || ""))
+    .join("\n\n");
+}
+
 function styleSheet(ws) {
   const range = XLSX.utils.decode_range(ws["!ref"]);
   const maxR = range.e.r;
@@ -354,6 +362,7 @@ async function buildExcelBlob(articles, lists) {
       ["ציטוט APA"]: buildApaCitation(a),
       ["כתובת אתר"]: a.url || "",
       ["תאריך שמירה"]: a.savedAt ? new Date(a.savedAt).toLocaleString() : "",
+      ["שיחה עם AI"]: chatToText(a.chat),
     }));
 
   const wb = XLSX.utils.book_new();

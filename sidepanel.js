@@ -596,6 +596,91 @@
     notesBox.appendChild(notes);
     notesBox.appendChild(noteStatus);
     detailBody.appendChild(notesBox);
+
+    const chatBox = document.createElement("div");
+    chatBox.className = "chat-box";
+    const chatTitle = document.createElement("div");
+    chatTitle.className = "summary-label";
+    chatTitle.textContent = "שיחה עם AI על המאמר";
+    const chatMessages = document.createElement("div");
+    chatMessages.className = "chat-messages";
+    const chatStatus = document.createElement("div");
+    chatStatus.className = "status muted";
+    const chatInput = document.createElement("input");
+    chatInput.className = "input";
+    chatInput.type = "text";
+    chatInput.placeholder = "שאל שאלה על המאמר...";
+    const chatSend = document.createElement("button");
+    chatSend.type = "button";
+    chatSend.className = "btn btn-primary btn-small";
+    chatSend.textContent = "שלח";
+    const chatRow = document.createElement("div");
+    chatRow.className = "chat-input-row";
+    chatRow.appendChild(chatInput);
+    chatRow.appendChild(chatSend);
+
+    const renderChat = () => {
+      chatMessages.innerHTML = "";
+      (a.chat || []).forEach((m) => {
+        const div = document.createElement("div");
+        div.className = "chat-msg " + (m.role === "user" ? "chat-user" : "chat-ai");
+        div.textContent = m.text || "";
+        chatMessages.appendChild(div);
+      });
+      chatMessages.scrollTop = chatMessages.scrollHeight;
+    };
+    renderChat();
+
+    const sendChat = async () => {
+      const text = chatInput.value.trim();
+      if (!text) return;
+      if (!aiApiKey) {
+        chatStatus.className = "status error";
+        chatStatus.textContent = "אין API key. הזינו אותו בהגדרות.";
+        return;
+      }
+      const chat = (a.chat || []).concat([{ role: "user", text }]);
+      a.chat = chat;
+      await updateArticle(a.id, { chat });
+      articles = await getArticles();
+      chatInput.value = "";
+      renderChat();
+      chatSend.disabled = true;
+      chatStatus.className = "status muted";
+      chatStatus.textContent = "הבינה חושבת...";
+      try {
+        const resp = await chrome.runtime.sendMessage({
+          type: "CHAT_ARTICLE",
+          apiKey: aiApiKey,
+          model: aiModel,
+          title: a.title,
+          content: a.content,
+          messages: chat,
+        });
+        if (!resp || !resp.ok) throw new Error((resp && resp.error) || "שגיאה בתגובה");
+        const reply = { role: "assistant", text: resp.text };
+        a.chat = (a.chat || []).concat([reply]);
+        await updateArticle(a.id, { chat: a.chat });
+        articles = await getArticles();
+        chatStatus.className = "status success";
+        chatStatus.textContent = "נשמר ✓";
+        setTimeout(() => { chatStatus.textContent = ""; }, 2000);
+      } catch (err) {
+        chatStatus.className = "status error";
+        chatStatus.textContent = "שגיאה: " + err.message;
+      } finally {
+        chatSend.disabled = false;
+        renderChat();
+      }
+    };
+    chatSend.addEventListener("click", sendChat);
+    chatInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
+
+    chatBox.appendChild(chatTitle);
+    chatBox.appendChild(chatMessages);
+    chatBox.appendChild(chatStatus);
+    chatBox.appendChild(chatRow);
+    detailBody.appendChild(chatBox);
     detailBody.appendChild(content);
     detailView.classList.remove("hidden");
     if (!isFull) {

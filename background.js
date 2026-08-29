@@ -11,6 +11,12 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       .catch((err) => sendResponse({ ok: false, error: err.message }));
     return true; // async response
   }
+  if (msg && msg.type === "CHAT_ARTICLE") {
+    chatArticle(msg.apiKey, msg.model, msg.title, msg.content, msg.messages)
+      .then((data) => sendResponse({ ok: true, text: data }))
+      .catch((err) => sendResponse({ ok: false, error: err.message }));
+    return true; // async response
+  }
 });
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
@@ -59,6 +65,62 @@ async function generateSummary(apiKey, content, title, model) {
     [];
   const text = parts.map((p) => p.text || "").join("");
   if (!text) throw new Error("המודל לא החזיר תקציר");
+  return text.trim();
+}
+
+async function chatArticle(apiKey, model, title, content, messages) {
+  if (!apiKey) throw new Error("לא הוזן API key");
+  const m = model || "gemini-2.0-flash";
+  const sys =
+    "אתה עוזר ללימוד ולניתוח של מאמר ספציפי. ענה בעברית על שאלות המשתמש לגבי המאמר הזה בלבד. " +
+    "תשובותיך חייבות להיות מבוססות על תוכן המאמר; אם דבר לא מופיע במאמר, ציין זאת במפורש. " +
+    "שמור על תשובות ממוקדות, מנומקות ומתומצתות.";
+  const articlePart =
+    "כותרת המאמר: " + (title || "") + "\n\n" + "גוף המאמר:\n" + String(content || "").slice(0, 12000);
+
+  const contents = [
+    { role: "user", parts: [{ text: "להלן המאמר שאליו תתייחס בכל השאלות הבאות:\n\n" + articlePart }] },
+  ];
+  (Array.isArray(messages) ? messages : [])
+    .slice(-20)
+    .forEach((m) => {
+      contents.push({
+        role: m.role === "assistant" ? "model" : "user",
+        parts: [{ text: m.text || "" }],
+      });
+    });
+
+  const resp = await fetch(
+    "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(m) + ":generateContent",
+    {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: sys }] },
+        contents,
+        generationConfig: { maxOutputTokens: 2048 },
+      }),
+    }
+  );
+
+  if (!resp.ok) {
+    let detail = "HTTP " + resp.status;
+    try {
+      const j = await resp.json();
+      if (j && j.error && j.error.message) detail = j.error.message;
+    } catch (e) {}
+    throw new Error("שגיאה מ-Google AI: " + detail);
+  }
+
+  const json = await resp.json();
+  const parts =
+    (json.candidates &&
+      json.candidates[0] &&
+      json.candidates[0].content &&
+      json.candidates[0].content.parts) ||
+    [];
+  const text = parts.map((p) => p.text || "").join("");
+  if (!text) throw new Error("המודל לא החזיר תשובה");
   return text.trim();
 }
 
