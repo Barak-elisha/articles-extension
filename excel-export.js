@@ -112,14 +112,14 @@ function markdownToRuns(md) {
 }
 
 function runToXml(r) {
-  let props = "";
-  if (r.bold) props += "<b/>";
-  if (r.italic) props += "<i/>";
-  if (r.underline) props += "<u/>";
-  if (r.size) props += '<sz val="' + r.size + '"/>';
-  if (r.color) props += '<color rgb="' + argb(r.color) + '"/>';
-  if (!props) props = '<sz val="11"/>';
-  return "<r><rPr>" + props + '<rFont val="Calibri"/></rPr><t xml:space="preserve">' + escXml(r.text) + "</t></r>";
+  const props = ['<rFont val="Calibri"/>'];
+  if (r.bold) props.push("<b/>");
+  if (r.italic) props.push("<i/>");
+  if (r.color) props.push('<color rgb="' + argb(r.color) + '"/>');
+  if (r.size) props.push('<sz val="' + r.size + '"/>');
+  if (r.underline) props.push("<u/>");
+  if (props.length === 1) props.push('<sz val="11"/>');
+  return "<r><rPr>" + props.join("") + "</rPr><t xml:space=\"preserve\">" + escXml(r.text) + "</t></r>";
 }
 
 // The schema requires an 8-digit ARGB value; colors arrive here as 6-digit RGB.
@@ -252,7 +252,12 @@ async function applyHyperlinks(zip, colLetter) {
       xml = xml.replace("<worksheet ", '<worksheet xmlns:r="' + relUrlNs + '" ');
     }
     const hyperlinks = refs.map(({ ref, url }) => '<hyperlink ref="' + ref + '" r:id="' + ref + '_link"/>').join("");
-    xml = xml.replace("</worksheet>", "<hyperlinks>" + hyperlinks + "</hyperlinks></worksheet>");
+    // <hyperlinks> must come before <ignoredErrors> (SheetJS emits ignoredErrors last).
+    if (/<ignoredErrors/.test(xml)) {
+      xml = xml.replace(/<ignoredErrors/, "<hyperlinks>" + hyperlinks + "</hyperlinks><ignoredErrors");
+    } else {
+      xml = xml.replace("</worksheet>", "<hyperlinks>" + hyperlinks + "</hyperlinks></worksheet>");
+    }
     zip.file(p, xml);
 
     const relsPath = p.replace(/sheet(\d+)\.xml$/, "_rels/sheet$1.xml.rels");
@@ -286,8 +291,9 @@ async function enhanceWorkbook(arrayBuf, summaryCol, urlCol, notesCol) {
   }
 }
 
-// Re-opens the produced package and verifies every XML part is well formed.
-// If any part is broken, the raw (known-good) SheetJS output is returned instead.
+// Re-opens the produced package and verifies every XML part is well formed,
+// and that run/worksheet element ordering follows the OOXML schema.
+// If anything is broken, the raw (known-good) SheetJS output is returned instead.
 async function isWellFormedWorkbook(bytes) {
   if (typeof window === "undefined" || !window.DOMParser) return true;
   try {
@@ -298,13 +304,39 @@ async function isWellFormedWorkbook(bytes) {
         .map(async (p) => {
           const xml = await zip.file(p).async("string");
           const doc = new window.DOMParser().parseFromString(xml, "application/xml");
-          return !doc.querySelector("parsererror");
+          if (doc.querySelector("parsererror")) return false;
+          if (/^xl\/worksheets\/.+\.xml$/.test(p) && hasSchemaOrderIssues(xml)) return false;
+          return true;
         })
     );
     return results.every(Boolean);
   } catch (e) {
     return false;
   }
+}
+
+// Verifies <hyperlinks> precedes <ignoredErrors> and that <rPr> children respect
+// the canonical CT_RPrElt sequence (rFont, b, i, color, sz, u, ...).
+function hasSchemaOrderIssues(xml) {
+  if (/<ignoredErrors/.test(xml)) {
+    const hi = xml.indexOf("<hyperlinks");
+    const gi = xml.indexOf("<ignoredErrors");
+    if (hi !== -1 && hi > gi) return true;
+  }
+  const rPrOrder = ["rfont", "charset", "family", "b", "i", "strike", "outline", "shadow", "condense", "extend", "color", "sz", "u", "vertalign", "scheme"];
+  const re = /<rPr>([\s\S]*?)<\/rPr>/g;
+  let m;
+  while ((m = re.exec(xml))) {
+    const tags = Array.from(m[1].matchAll(/<([a-zA-Z]+)[\s\/>]/g)).map((x) => x[1].toLowerCase());
+    let prev = -1;
+    for (const t of tags) {
+      const idx = rPrOrder.indexOf(t);
+      if (idx === -1) continue;
+      if (idx < prev) return true;
+      prev = idx;
+    }
+  }
+  return false;
 }
 
 async function buildExcelBlob(articles, lists) {
