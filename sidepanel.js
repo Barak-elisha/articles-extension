@@ -52,18 +52,31 @@
   }
 
   // DOM-based cleanup for the sanitized HTML of the full-text editor: strips
-  // whitespace-only filler (e.g. the tabs inside <div>\t\t</div>), collapses runs of
-  // 2+ consecutive empty block elements to a single empty block (one blank line,
-  // mirroring the plain-text \n{3,} -> \n\n rule), collapses runs of 3+ consecutive
-  // <br> to two (one blank line), and drops trailing empty blocks.
+  // whitespace-only text nodes (e.g. the tabs/newlines inside <div>\t\t\n</div> and
+  // between block elements, which otherwise render as visible blank lines under
+  // white-space: pre-wrap), collapses runs of 2+ consecutive empty block elements
+  // to a single empty block (one blank line, mirroring the plain-text \n{3,} -> \n\n
+  // rule), collapses runs of 3+ consecutive <br> to two (one blank line), and drops
+  // trailing empty blocks. Whitespace inside <pre>/<code> is preserved.
   function normalizeHtml(html) {
     const doc = new DOMParser().parseFromString(html, "text/html");
     const root = doc.body || doc.documentElement;
 
+    const isWsOnly = (s) => !String(s || "").replace(/\u00a0/g, " ").trim();
+
+    const shouldStripWs = (parent, value) => {
+      const tag = parent.tagName.toUpperCase();
+      if (tag === "PRE" || tag === "CODE") return false;
+      if (!BLOCK_RE.test(parent.tagName) && tag !== "BODY" && tag !== "HTML") return false;
+      if (isEmptyBlock(parent)) return true;
+      if (/[\n\r]/.test(value)) return true;
+      return Array.from(parent.children).some((c) => BLOCK_RE.test(c.tagName));
+    };
+
     const prune = (container) => {
       for (const child of Array.from(container.childNodes)) {
         if (child.nodeType === 3) {
-          if (!String(child.nodeValue || "").replace(/\u00a0/g, " ").trim() && isEmptyBlock(container)) {
+          if (isWsOnly(child.nodeValue) && shouldStripWs(container, child.nodeValue)) {
             container.removeChild(child);
           }
           continue;
@@ -777,7 +790,7 @@
     content.spellcheck = false;
     content.dataset.placeholder = t("noBody");
     content.dir = detectDirection(a.content);
-    content.innerHTML = contentToHtml(a.content);
+    content.innerHTML = normalizeBody(contentToHtml(a.content));
     content.title = t("editHint");
 
     const saveContent = async () => {
