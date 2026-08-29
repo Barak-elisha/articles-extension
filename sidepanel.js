@@ -25,6 +25,11 @@
   const aiToggle = $("#aiToggle");
   const aiSettingsToggle = $("#aiSettingsToggle");
   const aiSettings = $("#aiSettings");
+  const settingsBtn = $("#settingsBtn");
+  const settingsView = $("#settingsView");
+  const settingsBackBtn = $("#settingsBackBtn");
+  const mainView = $("#mainView");
+  const expandBtn = $("#expandBtn");
 
   async function loadAll() {
     lists = await getLists();
@@ -283,7 +288,7 @@
       alert("אין מאמרים לייצוא.");
       return;
     }
-    const blob = buildExcelBlob(articles, lists);
+    const blob = await buildExcelBlob(articles, lists);
     try {
       if (window.showSaveFilePicker) {
         const handle = await window.showSaveFilePicker({
@@ -518,6 +523,41 @@
       });
       toolbar.appendChild(b);
     }
+    const sizeSel = document.createElement("select");
+    sizeSel.className = "notes-tb";
+    sizeSel.title = "גודל טקסט";
+    [
+      { label: "גודל ▾", value: "" },
+      { label: "קטן", value: "1" },
+      { label: "רגיל", value: "3" },
+      { label: "גדול", value: "7" },
+    ].forEach((o) => {
+      const opt = document.createElement("option");
+      opt.value = o.value;
+      opt.textContent = o.label;
+      sizeSel.appendChild(opt);
+    });
+    sizeSel.addEventListener("mousedown", (e) => e.preventDefault());
+    sizeSel.addEventListener("change", () => {
+      if (!sizeSel.value) { sizeSel.value = ""; return; }
+      notes.focus();
+      document.execCommand("fontSize", false, sizeSel.value);
+      notes.focus();
+      sizeSel.value = "";
+    });
+    toolbar.appendChild(sizeSel);
+    const colorInput = document.createElement("input");
+    colorInput.type = "color";
+    colorInput.className = "notes-color";
+    colorInput.value = "#1d2433";
+    colorInput.title = "צבע טקסט";
+    colorInput.addEventListener("mousedown", (e) => e.preventDefault());
+    colorInput.addEventListener("input", () => {
+      notes.focus();
+      document.execCommand("foreColor", false, colorInput.value.toUpperCase());
+      notes.focus();
+    });
+    toolbar.appendChild(colorInput);
     const noteStatus = document.createElement("div");
     noteStatus.className = "status muted";
     const saveNotes = async () => {
@@ -556,6 +596,24 @@
   clearDirBtn.addEventListener("click", clearDir);
   saveApiBtn.addEventListener("click", saveAiSettings);
   aiSettingsToggle.addEventListener("click", () => aiSettings.classList.toggle("hidden"));
+  settingsBtn.addEventListener("click", () => {
+    settingsView.classList.remove("hidden");
+    mainView.classList.add("hidden");
+    detailView.classList.add("hidden");
+    renderDirStatus();
+  });
+  settingsBackBtn.addEventListener("click", () => {
+    settingsView.classList.add("hidden");
+    mainView.classList.remove("hidden");
+  });
+  expandBtn.addEventListener("click", () => {
+    chrome.windows.create({
+      url: chrome.runtime.getURL("sidepanel.html"),
+      type: "popup",
+      width: 820,
+      height: 940,
+    });
+  });
   backBtn.addEventListener("click", () => detailView.classList.add("hidden"));
 
   listSelect.addEventListener("change", async () => {
