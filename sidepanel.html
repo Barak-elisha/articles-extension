@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="he" dir="rtl">
+<html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
@@ -7,57 +7,64 @@
 </head>
 <body>
   <header class="app-header">
-    <div class="app-title">שומר מאמרים</div>
+    <div class="app-title" data-i18n="appTitle">Article Saver</div>
     <div class="header-actions">
-      <button id="expandBtn" class="gear-btn" title="פתיחה בגודל מלא">⛶</button>
-      <button id="settingsBtn" class="gear-btn" title="הגדרות">⚙</button>
+      <button id="expandBtn" class="gear-btn" data-i18n-title="expandTitle" title="Open in full size">⛶</button>
+      <button id="settingsBtn" class="gear-btn" data-i18n-title="settingsTitle" title="Settings">⚙</button>
     </div>
   </header>
 
   <div id="mainView">
     <section id="manageSection" class="card">
-      <div class="label">ניהול רשימות</div>
+      <div class="label" data-i18n="manageLists">Manage lists</div>
       <div class="row">
-        <input id="newListName" class="input" type="text" placeholder="שם רשימה חדשה" />
-        <button id="addListBtn" class="btn btn-secondary btn-small">הוסף</button>
+        <input id="newListName" class="input" type="text" data-i18n-placeholder="newListPlaceholder" placeholder="New list name" />
+        <button id="addListBtn" class="btn btn-secondary btn-small" data-i18n="add">Add</button>
       </div>
     </section>
 
     <section id="saveSection" class="card">
-      <label class="label" for="listSelect">רשימה פעילה</label>
+      <label class="label" for="listSelect" data-i18n="activeList">Active list</label>
       <select id="listSelect" class="select"></select>
-      <button id="saveBtn" class="btn btn-primary">שמור את המאמר הנוכחי</button>
+      <button id="saveBtn" class="btn btn-primary" data-i18n="saveCurrent">Save current article</button>
       <label class="checkbox">
         <input type="checkbox" id="aiToggle" checked />
-        <span>הוסף תקציר AI (אם נשמר מפתח)</span>
+        <span data-i18n="aiToggleLabel">Include AI summary (if a key is saved)</span>
       </label>
       <div id="saveStatus" class="status"></div>
     </section>
 
     <section id="listsSection" class="card">
       <div class="section-head">
-        <div class="label">הרשימות שלי</div>
-        <button id="exportBtn" class="btn btn-secondary btn-small">ייצוא ל-Excel</button>
+        <div class="label" data-i18n="myLists">My lists</div>
+        <button id="exportBtn" class="btn btn-secondary btn-small" data-i18n="exportExcel">Export to Excel</button>
       </div>
       <div id="listsContainer" class="lists"></div>
     </section>
   </div>
 
   <div id="settingsView" class="hidden">
-    <button id="settingsBackBtn" class="btn btn-small">← חזרה</button>
+    <button id="settingsBackBtn" class="btn btn-small" data-i18n="settingsBack">← Back</button>
+    <section id="languageSection" class="card">
+      <div class="label" data-i18n="languageLabel">Interface language</div>
+      <select id="langSelect" class="select">
+        <option value="en" data-i18n="languageEnglish">English</option>
+        <option value="he" data-i18n="languageHebrew">עברית</option>
+      </select>
+    </section>
     <section id="aiSection" class="card">
-      <button id="aiSettingsToggle" class="btn btn-secondary btn-small">הגדרות AI</button>
+      <button id="aiSettingsToggle" class="btn btn-secondary btn-small" data-i18n="aiSettings">AI settings</button>
       <div id="aiSettings" class="hidden">
-        <div class="label">תקציר AI (Google AI Studio)</div>
-        <input id="apiKeyInput" class="input" type="password" placeholder="הזן את ה-API key מ-Google AI Studio" />
-        <input id="modelInput" class="input" type="text" placeholder="מודל (למשל gemini-2.0-flash)" />
-        <button id="saveApiBtn" class="btn btn-secondary btn-small">שמור מפתח</button>
+        <div class="label" data-i18n="aiSummaryLabel">AI summary (Google AI Studio)</div>
+        <input id="apiKeyInput" class="input" type="password" data-i18n-placeholder="apiKeyPlaceholder" placeholder="Enter the API key from Google AI Studio" />
+        <input id="modelInput" class="input" type="text" data-i18n-placeholder="modelPlaceholder" placeholder="Model (e.g. gemini-2.0-flash)" />
+        <button id="saveApiBtn" class="btn btn-secondary btn-small" data-i18n="saveKey">Save key</button>
       </div>
     </section>
   </div>
 
   <div id="detailView" class="detail hidden">
-    <button id="backBtn" class="btn btn-small">← חזרה</button>
+    <button id="backBtn" class="btn btn-small" data-i18n="back">← Back</button>
     <div id="detailBody"></div>
   </div>
 
@@ -65,6 +72,8 @@
   <script src="lib/cpexcel.js"></script>
   <script src="lib/xlsx-js-style.min.js"></script>
   <script src="storage.js"></script>
+  <script src="i18n.js"></script>
+  <script src="sanitize.js"></script>
   <script src="excel-export.js"></script>
   <script src="sidepanel.js"></script>
 </body>

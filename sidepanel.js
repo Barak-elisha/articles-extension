@@ -9,6 +9,8 @@
   let aiApiKey = "";
   let aiModel = "gemini-2.0-flash";
 
+  const t = (k) => window.I18N.t(k);
+
   const $ = (sel) => document.querySelector(sel);
   const listSelect = $("#listSelect");
   const saveBtn = $("#saveBtn");
@@ -31,10 +33,13 @@
   const settingsBackBtn = $("#settingsBackBtn");
   const mainView = $("#mainView");
   const expandBtn = $("#expandBtn");
+  const langSelect = $("#langSelect");
 
   async function loadAll() {
     lists = await getLists();
     articles = await getArticles();
+    await window.I18N.load();
+    applyI18n();
     const st = await getSetting("activeListId");
     const savedId = st ? st.value : null;
     if (savedId && lists.some((l) => l.id === savedId)) activeListId = savedId;
@@ -42,6 +47,14 @@
     if (activeListId) await setSetting("activeListId", activeListId);
     await loadAiSettings();
     render();
+  }
+
+  function applyI18n() {
+    window.I18N.apply();
+  }
+
+  function applyLangSelect() {
+    langSelect.value = window.I18N.lang;
   }
 
   async function loadAiSettings() {
@@ -63,7 +76,7 @@
     if (!lists.length) {
       const opt = document.createElement("option");
       opt.value = "";
-      opt.textContent = "אין רשימות - צור ראשונה";
+      opt.textContent = t("noListsOption");
       listSelect.appendChild(opt);
       listSelect.disabled = true;
       return;
@@ -80,7 +93,7 @@
 
   function listName(id) {
     const l = lists.find((x) => x.id === id);
-    return l ? l.name : "ללא רשימה";
+    return l ? l.name : t("noList");
   }
 
   function renderLists() {
@@ -88,7 +101,7 @@
     if (!lists.length) {
       const div = document.createElement("div");
       div.className = "status muted";
-      div.textContent = "אין רשימות עדיין.";
+      div.textContent = t("noLists");
       listsContainer.appendChild(div);
       return;
     }
@@ -106,21 +119,21 @@
       const count = document.createElement("div");
       count.className = "list-count";
       const cnt = articles.filter((a) => a.listId === list.id).length;
-      count.textContent = cnt + " מאמרים";
+      count.textContent = cnt + " " + t("articlesCount");
 
       const actions = document.createElement("div");
       actions.className = "list-actions";
 
       const editBtn = document.createElement("button");
       editBtn.className = "icon-btn";
-      editBtn.textContent = "ערוך";
-      editBtn.title = "ערוך שם";
+      editBtn.textContent = t("edit");
+      editBtn.title = t("editTitle");
       editBtn.addEventListener("click", () => renameList(list.id));
 
       const delBtn = document.createElement("button");
       delBtn.className = "icon-btn danger";
-      delBtn.textContent = "מחק";
-      delBtn.title = "מחק רשימה";
+      delBtn.textContent = t("delete");
+      delBtn.title = t("deleteListTitle");
       delBtn.addEventListener("click", () => removeList(list.id));
 
       actions.appendChild(editBtn);
@@ -149,14 +162,14 @@
 
     const title = document.createElement("a");
     title.className = "article-title";
-    title.textContent = a.title || "(ללא כותרת)";
-    title.title = "לפתיחת צפייה";
+    title.textContent = a.title || t("noTitle");
+    title.title = t("openView");
     title.addEventListener("click", () => showDetail(a));
 
     const openBtn = document.createElement("button");
     openBtn.className = "icon-btn";
-    openBtn.textContent = "פתח";
-    openBtn.title = "פתח מקור";
+    openBtn.textContent = t("open");
+    openBtn.title = t("openSource");
     openBtn.addEventListener("click", () => {
       if (a.url) chrome.tabs.create({ url: a.url });
     });
@@ -164,7 +177,7 @@
     const delBtn = document.createElement("button");
     delBtn.className = "icon-btn danger";
     delBtn.textContent = "✕";
-    delBtn.title = "מחק מאמר";
+    delBtn.title = t("deleteArticleTitle");
     delBtn.addEventListener("click", () => removeArticle(a.id));
 
     row.appendChild(title);
@@ -177,15 +190,15 @@
 
   async function saveCurrentArticle() {
     saveStatus.className = "status";
-    saveStatus.textContent = "מחלץ את המאמר...";
+    saveStatus.textContent = t("extracting");
     if (!activeListId) {
       saveStatus.className = "status error";
-      saveStatus.textContent = "צור רשימה תחילה.";
+      saveStatus.textContent = t("createListFirst");
       return;
     }
     try {
-      const resp = await chrome.runtime.sendMessage({ type: "EXTRACT_ARTICLE" });
-      if (!resp || !resp.ok) throw new Error((resp && resp.error) || "שגיאה בחילוץ");
+      const resp = await chrome.runtime.sendMessage({ type: "EXTRACT_ARTICLE", lang: window.I18N.lang });
+      if (!resp || !resp.ok) throw new Error((resp && resp.error) || t("extractError"));
       const article = await addArticle({
         listId: activeListId,
         title: resp.data.title,
@@ -195,10 +208,10 @@
       if (aiToggle.checked) {
         if (!aiApiKey) {
           saveStatus.className = "status error";
-          saveStatus.textContent = "המאמר נשמר, אך אין API key להפקת תקציר. הזינו מפתח בהגדרות.";
+          saveStatus.textContent = t("savedNoKey");
         } else {
           saveStatus.className = "status";
-          saveStatus.textContent = "מפיק תקציר AI...";
+          saveStatus.textContent = t("generatingSummary");
           try {
             const sum = await chrome.runtime.sendMessage({
               type: "GENERATE_SUMMARY",
@@ -206,16 +219,17 @@
               content: article.content,
               title: article.title,
               model: aiModel,
+              lang: window.I18N.lang,
             });
             if (sum && sum.ok) {
               article.summary = sum.summary;
               await updateArticle(article.id, { summary: article.summary });
             } else {
-              throw new Error((sum && sum.error) || "שגיאה בתקציר");
+              throw new Error((sum && sum.error) || t("summaryError"));
             }
           } catch (aiErr) {
             saveStatus.className = "status error";
-            saveStatus.textContent = "המאמר נשמר, אולם התקציר נכשל: " + aiErr.message;
+            saveStatus.textContent = t("savedButSummaryFailed") + aiErr.message;
           }
         }
       }
@@ -226,11 +240,11 @@
       }
       if (saveStatus.className !== "status error") {
         saveStatus.className = "status success";
-        saveStatus.textContent = "המאמר נשמר בהצלחה ✓";
+        saveStatus.textContent = t("savedSuccess");
       }
     } catch (err) {
       saveStatus.className = "status error";
-      saveStatus.textContent = "שגיאה: " + err.message;
+      saveStatus.textContent = t("errorPrefix") + err.message;
     }
   }
 
@@ -244,7 +258,7 @@
 
   async function renameList(id) {
     const list = lists.find((l) => l.id === id);
-    const name = prompt("שם חדש לרשימה:", list ? list.name : "");
+    const name = prompt(t("renamePrompt"), list ? list.name : "");
     if (name && name.trim()) {
       await updateList(id, name.trim());
       await loadAll();
@@ -253,14 +267,14 @@
 
   async function removeList(id) {
     const list = lists.find((l) => l.id === id);
-    const ok = confirm('למחוק את הרשימה "' + (list ? list.name : "") + '" ואת כל מאמריה?');
+    const ok = confirm(t("deleteListConfirm") + (list ? list.name : "") + t("deleteListConfirmSuffix"));
     if (!ok) return;
     await deleteList(id);
     await loadAll();
   }
 
   async function removeArticle(id) {
-    if (!confirm("למחוק את המאמר?")) return;
+    if (!confirm(t("deleteArticleConfirm"))) return;
     await deleteArticle(id);
     articles = await getArticles();
     if (activeArticleId === id) { activeArticleId = null; detailView.classList.add("hidden"); }
@@ -271,14 +285,14 @@
     const freshLists = await getLists();
     const freshArticles = await getArticles();
     if (!freshArticles.length) {
-      alert("אין מאמרים לייצוא.");
+      alert(t("noArticlesExport"));
       return;
     }
     const blob = await buildExcelBlob(freshArticles, freshLists);
     try {
       if (window.showSaveFilePicker) {
         const handle = await window.showSaveFilePicker({
-          suggestedName: "מאמרים.xlsx",
+          suggestedName: t("excelFileName"),
           types: [{
             description: "Excel Workbook",
             accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"] },
@@ -287,18 +301,18 @@
         const writable = await handle.createWritable();
         await writable.write(blob);
         await writable.close();
-        alert("קובץ ה-Excel נשמר בהצלחה.");
+        alert(t("exportSaved"));
       } else {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = "מאמרים.xlsx";
+        a.download = t("excelFileName");
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 4000);
       }
     } catch (e) {
       if (e && e.name === "AbortError") return; // user cancelled
-      alert("שגיאה בייצוא: " + e.message);
+      alert(t("exportError") + e.message);
     }
   }
 
@@ -309,7 +323,7 @@
     await setSetting("geminiModel", model);
     aiApiKey = key;
     aiModel = model;
-    alert("מפתח ומודל ה-AI נשמרו.");
+    alert(t("aiSaved"));
   }
 
   /* ---------- Detail view ---------- */
@@ -368,12 +382,12 @@
         continue;
       }
       if (/^([*-])\s+/.test(line)) {
-        if (listTag !== "ul") { closeList(); html += '<ul style="margin:4px 0 8px;padding-right:18px;">'; listTag = "ul"; }
+        if (listTag !== "ul") { closeList(); html += '<ul style="margin:4px 0 8px;padding-inline-start:18px;">'; listTag = "ul"; }
         html += "<li style=\"margin:2px 0;\">" + mdInline(line.replace(/^[*-]\s+/, "")) + "</li>";
         continue;
       }
       if (/^\d+[.)]\s+/.test(line)) {
-        if (listTag !== "ol") { closeList(); html += '<ol style="margin:4px 0 8px;padding-right:18px;">'; listTag = "ol"; }
+        if (listTag !== "ol") { closeList(); html += '<ol style="margin:4px 0 8px;padding-inline-start:18px;">'; listTag = "ol"; }
         html += "<li style=\"margin:2px 0;\">" + mdInline(line.replace(/^\d+[.)]\s+/, "")) + "</li>";
         continue;
       }
@@ -390,7 +404,7 @@
     applyActiveRow();
     const title = document.createElement("div");
     title.className = "detail-title";
-    title.textContent = a.title || "(ללא כותרת)";
+    title.textContent = a.title || t("noTitle");
 
     const url = document.createElement("a");
     url.className = "detail-url";
@@ -398,18 +412,19 @@
     url.textContent = a.url;
     url.target = "_blank";
 
+    const metaBaseText = t("listOf") + listName(a.listId) + "  |  " + (a.savedAt ? new Date(a.savedAt).toLocaleString() : "");
     const meta = document.createElement("div");
     meta.className = "status muted";
-    meta.textContent = "רשימה: " + listName(a.listId) + "  |  " + (a.savedAt ? new Date(a.savedAt).toLocaleString() : "");
-    meta.dataset.base = meta.textContent;
+    meta.textContent = metaBaseText;
+    meta.dataset.base = metaBaseText;
 
     const content = document.createElement("div");
     content.className = "detail-content";
     content.contentEditable = "true";
     content.spellcheck = false;
-    content.dataset.placeholder = "אין גוף מאמר";
+    content.dataset.placeholder = t("noBody");
     content.textContent = a.content || "";
-    content.title = "לחצו לעריכה — נשמר אוטומטית";
+    content.title = t("editHint");
 
     const saveContent = async () => {
       const val = content.innerText != null ? content.innerText.replace(/\s+$/, "") : (content.textContent || "");
@@ -419,11 +434,11 @@
         a.content = val;
         articles = await getArticles();
         meta.className = "status success";
-        meta.textContent = meta.dataset.base + "  |  הטקסט נערך ונשמר ✓";
+        meta.textContent = meta.dataset.base + t("textSaved");
         setTimeout(() => { meta.className = "status muted"; meta.textContent = meta.dataset.base; }, 2500);
       } catch (e) {
         meta.className = "status error";
-        meta.textContent = "שמירת הטקסט נכשלה: " + e.message;
+        meta.textContent = t("textSaveFailed") + e.message;
       }
     };
     content.addEventListener("blur", saveContent);
@@ -440,11 +455,11 @@
     headRow.className = "summary-head";
     const sTitle = document.createElement("div");
     sTitle.className = "summary-label";
-    sTitle.textContent = "תקציר AI";
+    sTitle.textContent = t("aiSummary");
     const regenBtn = document.createElement("button");
     regenBtn.type = "button";
     regenBtn.className = "btn btn-secondary btn-small";
-    regenBtn.textContent = "צור מחדש";
+    regenBtn.textContent = t("regenerate");
     headRow.appendChild(sTitle);
     headRow.appendChild(regenBtn);
     summaryBox.appendChild(headRow);
@@ -460,12 +475,12 @@
     regenBtn.addEventListener("click", async () => {
       if (!aiApiKey) {
         sumStatus.className = "status error";
-        sumStatus.textContent = "אין API key. הזינו אותו בהגדרות.";
+        sumStatus.textContent = t("noApiKey");
         return;
       }
       regenBtn.disabled = true;
       sumStatus.className = "status muted";
-      sumStatus.textContent = "מפיק תקציר מחדש...";
+      sumStatus.textContent = t("regenerating");
       try {
         const resp = await chrome.runtime.sendMessage({
           type: "GENERATE_SUMMARY",
@@ -473,18 +488,19 @@
           content: a.content,
           title: a.title,
           model: aiModel,
+          lang: window.I18N.lang,
         });
-        if (!resp || !resp.ok) throw new Error((resp && resp.error) || "שגיאה בתקציר");
+        if (!resp || !resp.ok) throw new Error((resp && resp.error) || t("summaryError"));
         a.summary = resp.summary;
         await updateArticle(a.id, { summary: resp.summary });
         articles = await getArticles();
         sText.innerHTML = renderMarkdown(resp.summary);
         sumStatus.className = "status success";
-        sumStatus.textContent = "התקציר עודכן ✓";
+        sumStatus.textContent = t("summaryUpdated");
         setTimeout(() => { sumStatus.textContent = ""; }, 2500);
       } catch (err) {
         sumStatus.className = "status error";
-        sumStatus.textContent = "שגיאה: " + err.message;
+        sumStatus.textContent = t("chatError") + err.message;
       } finally {
         regenBtn.disabled = false;
       }
@@ -493,12 +509,12 @@
     notesBox.className = "notes-box";
     const nTitle = document.createElement("div");
     nTitle.className = "summary-label";
-    nTitle.textContent = "הערות שלי";
+    nTitle.textContent = t("myNotes");
     const notes = document.createElement("div");
     notes.className = "input notes-input rich-text";
     notes.contentEditable = "true";
-    notes.innerHTML = a.notes || "";
-    notes.dataset.placeholder = "הוסף הערות אישיות...";
+    notes.innerHTML = sanitizeHtml(a.notes);
+    notes.dataset.placeholder = t("notesPlaceholder");
     const toolbar = document.createElement("div");
     toolbar.className = "notes-toolbar";
     const captureRange = () => {
@@ -515,10 +531,10 @@
       }
     };
     const cmds = [
-      { label: "ב", cmd: "bold", title: "מודגש" },
-      { label: "I", cmd: "italic", title: "נטוי" },
-      { label: "•≡", cmd: "insertUnorderedList", title: "רשימת תבליטים" },
-      { label: "1≡", cmd: "insertOrderedList", title: "רשימה ממוספרת" },
+      { label: "ב", cmd: "bold", title: t("bold") },
+      { label: "I", cmd: "italic", title: t("italic") },
+      { label: "•≡", cmd: "insertUnorderedList", title: t("bulletList") },
+      { label: "1≡", cmd: "insertOrderedList", title: t("numList") },
     ];
     for (const c of cmds) {
       const b = document.createElement("button");
@@ -536,12 +552,12 @@
     }
     const sizeSel = document.createElement("select");
     sizeSel.className = "notes-tb";
-    sizeSel.title = "גודל טקסט";
+    sizeSel.title = t("textSize");
     [
-      { label: "גודל ▾", value: "" },
-      { label: "קטן", value: "1" },
-      { label: "רגיל", value: "3" },
-      { label: "גדול", value: "7" },
+      { label: t("size"), value: "" },
+      { label: t("small"), value: "1" },
+      { label: t("normal"), value: "3" },
+      { label: t("large"), value: "7" },
     ].forEach((o) => {
       const opt = document.createElement("option");
       opt.value = o.value;
@@ -563,7 +579,7 @@
     colorInput.type = "color";
     colorInput.className = "notes-color";
     colorInput.value = "#1d2433";
-    colorInput.title = "צבע טקסט";
+    colorInput.title = t("textColor");
     colorInput.addEventListener("mousedown", () => { savedRange = captureRange(); });
     colorInput.addEventListener("input", () => {
       restoreRange(savedRange);
@@ -578,11 +594,11 @@
         await updateArticle(a.id, { notes: notes.innerHTML });
         articles = await getArticles();
         noteStatus.className = "status success";
-        noteStatus.textContent = "ההערות נשמרו ✓";
+        noteStatus.textContent = t("notesSaved");
         setTimeout(() => { noteStatus.textContent = ""; }, 2500);
       } catch (e) {
         noteStatus.className = "status error";
-        noteStatus.textContent = "שמירה נכשלה: " + e.message;
+        noteStatus.textContent = t("noteSaveFailed") + e.message;
       }
     };
     notes.addEventListener("blur", saveNotes);
@@ -596,7 +612,7 @@
     chatBox.className = "chat-box";
     const chatTitle = document.createElement("div");
     chatTitle.className = "summary-label";
-    chatTitle.textContent = "שיחה עם AI על המאמר";
+    chatTitle.textContent = t("chatTitle");
     const chatMessages = document.createElement("div");
     chatMessages.className = "chat-messages";
     const chatStatus = document.createElement("div");
@@ -604,11 +620,11 @@
     const chatInput = document.createElement("input");
     chatInput.className = "input";
     chatInput.type = "text";
-    chatInput.placeholder = "שאל שאלה על המאמר...";
+    chatInput.placeholder = t("chatPlaceholder");
     const chatSend = document.createElement("button");
     chatSend.type = "button";
     chatSend.className = "btn btn-primary btn-small";
-    chatSend.textContent = "שלח";
+    chatSend.textContent = t("send");
     const chatRow = document.createElement("div");
     chatRow.className = "chat-input-row";
     chatRow.appendChild(chatInput);
@@ -631,7 +647,7 @@
       if (!text) return;
       if (!aiApiKey) {
         chatStatus.className = "status error";
-        chatStatus.textContent = "אין API key. הזינו אותו בהגדרות.";
+        chatStatus.textContent = t("noApiKeyChat");
         return;
       }
       const chat = (a.chat || []).concat([{ role: "user", text }]);
@@ -642,7 +658,7 @@
       renderChat();
       chatSend.disabled = true;
       chatStatus.className = "status muted";
-      chatStatus.textContent = "הבינה חושבת...";
+      chatStatus.textContent = t("aiThinking");
       try {
         const resp = await chrome.runtime.sendMessage({
           type: "CHAT_ARTICLE",
@@ -651,18 +667,19 @@
           title: a.title,
           content: a.content,
           messages: chat,
+          lang: window.I18N.lang,
         });
-        if (!resp || !resp.ok) throw new Error((resp && resp.error) || "שגיאה בתגובה");
+        if (!resp || !resp.ok) throw new Error((resp && resp.error) || t("replyError"));
         const reply = { role: "assistant", text: resp.text };
         a.chat = (a.chat || []).concat([reply]);
         await updateArticle(a.id, { chat: a.chat });
         articles = await getArticles();
         chatStatus.className = "status success";
-        chatStatus.textContent = "נשמר ✓";
+        chatStatus.textContent = t("saved");
         setTimeout(() => { chatStatus.textContent = ""; }, 2000);
       } catch (err) {
         chatStatus.className = "status error";
-        chatStatus.textContent = "שגיאה: " + err.message;
+        chatStatus.textContent = t("chatError") + err.message;
       } finally {
         chatSend.disabled = false;
         renderChat();
@@ -704,6 +721,8 @@
   saveApiBtn.addEventListener("click", saveAiSettings);
   aiSettingsToggle.addEventListener("click", () => aiSettings.classList.toggle("hidden"));
   settingsBtn.addEventListener("click", () => {
+    applyI18n();
+    applyLangSelect();
     settingsView.classList.remove("hidden");
     mainView.classList.add("hidden");
     detailView.classList.add("hidden");
@@ -711,6 +730,8 @@
   settingsBackBtn.addEventListener("click", () => {
     settingsView.classList.add("hidden");
     mainView.classList.remove("hidden");
+    applyI18n();
+    render();
   });
   expandBtn.addEventListener("click", () => {
     chrome.tabs.create({ url: chrome.runtime.getURL("sidepanel.html") + "?mode=full" });
@@ -722,7 +743,13 @@
     if (activeListId) await setSetting("activeListId", activeListId);
   });
 
-loadAll().then(() => {
+  langSelect.addEventListener("change", async () => {
+    await window.I18N.set(langSelect.value);
+    applyI18n();
+    render();
+  });
+
+  loadAll().then(() => {
     if (isFull && articles.length) showDetail(articles[0]);
   });
 

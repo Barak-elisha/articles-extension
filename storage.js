@@ -113,7 +113,7 @@ async function addArticle({ listId, title, content, url }) {
   const article = {
     id: "art_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
     listId,
-    title: title || "(ללא כותרת)",
+    title: title || (window.I18N ? window.I18N.t("noTitle") : "(no title)"),
     content: content || "",
     url: url || "",
     savedAt: Date.now(),

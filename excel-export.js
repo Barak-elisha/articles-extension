@@ -4,8 +4,12 @@ function stripHtml(html) {
   return (div.textContent || "").trim();
 }
 
+function _t(k) {
+  return (window.I18N && window.I18N.t ? window.I18N.t(k) : k);
+}
+
 function buildApaCitation(a) {
-  const title = (a.title || "(ללא כותרת)").trim();
+  const title = (a.title || _t("noTitle")).trim();
   let site = "";
   try {
     site = new URL(a.url || "").hostname.replace(/^www\./, "");
@@ -20,11 +24,11 @@ function buildApaCitation(a) {
   return (title + hasDate + sitePart + urlPart).trim();
 }
 
-// Formats the saved AI chat as a readable dialogue ("אני:" / "AI:").
+// Formats the saved AI chat as a readable dialogue ("Me:" / "AI:").
 function chatToText(chat) {
   if (!Array.isArray(chat) || !chat.length) return "";
   return chat
-    .map((m) => (m.role === "user" ? "אני" : "AI") + ": " + (m.text || ""))
+    .map((m) => (m.role === "user" ? _t("chatPrefixUser") : _t("chatPrefixAi")) + ": " + (m.text || ""))
     .join("\n\n");
 }
 
@@ -355,28 +359,28 @@ async function buildExcelBlob(articles, lists) {
     .slice()
     .sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0))
     .map((a) => ({
-      ["רשימה"]: listName[a.listId] || "ללא רשימה",
-      ["כותרת"]: a.title || "",
-      ["תקציר AI"]: a.summary || "",
-      ["הערות"]: window.JSZip ? (a.notes || "") : stripHtml(a.notes),
-      ["ציטוט APA"]: buildApaCitation(a),
-      ["כתובת אתר"]: a.url || "",
-      ["תאריך שמירה"]: a.savedAt ? new Date(a.savedAt).toLocaleString() : "",
-      ["שיחה עם AI"]: chatToText(a.chat),
+      [_t("excelList")]: listName[a.listId] || _t("noList"),
+      [_t("excelTitle")]: a.title || "",
+      [_t("excelSummary")]: a.summary || "",
+      [_t("excelNotes")]: window.JSZip ? sanitizeHtml(a.notes) : stripHtml(a.notes),
+      [_t("excelCitation")]: buildApaCitation(a),
+      [_t("excelUrl")]: a.url || "",
+      [_t("excelSavedOn")]: a.savedAt ? new Date(a.savedAt).toLocaleString() : "",
+      [_t("excelChat")]: chatToText(a.chat),
     }));
 
   const wb = XLSX.utils.book_new();
   const allSheet = XLSX.utils.json_to_sheet(rows.length ? rows : [{}]);
   styleSheet(allSheet);
-  XLSX.utils.book_append_sheet(wb, allSheet, "כל המאמרים");
+  XLSX.utils.book_append_sheet(wb, allSheet, _t("excelAllArticles"));
 
   // One sheet per list
   lists.forEach((list) => {
-    const listRows = rows.filter((r) => r["רשימה"] === list.name);
+    const listRows = rows.filter((r) => r[_t("excelList")] === list.name);
     if (!listRows.length) return;
     const sheet = XLSX.utils.json_to_sheet(listRows);
     styleSheet(sheet);
-    XLSX.utils.book_append_sheet(wb, sheet, String(list.name).slice(0, 30) || "רשימה");
+    XLSX.utils.book_append_sheet(wb, sheet, String(list.name).slice(0, 30) || _t("excelListFallback"));
   });
 
   const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
