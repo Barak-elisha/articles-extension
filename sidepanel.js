@@ -5,6 +5,7 @@
   let lists = [];
   let articles = [];
   let activeListId = null;
+  let activeArticleId = null;
   let aiApiKey = "";
   let aiModel = "gemini-2.0-flash";
 
@@ -148,6 +149,7 @@
   function renderArticleRow(a) {
     const row = document.createElement("div");
     row.className = "article-item";
+    row.dataset.id = a.id;
 
     const title = document.createElement("a");
     title.className = "article-title";
@@ -283,6 +285,7 @@
     if (!confirm("למחוק את המאמר?")) return;
     await deleteArticle(id);
     articles = await getArticles();
+    if (activeArticleId === id) { activeArticleId = null; detailView.classList.add("hidden"); }
     render();
   }
 
@@ -365,6 +368,14 @@
 
   /* ---------- Detail view ---------- */
 
+  // Highlights the article row currently open, so the user always knows
+  // which article is being read.
+  function applyActiveRow() {
+    document.querySelectorAll(".article-item").forEach((row) => {
+      row.classList.toggle("active", row.dataset.id === activeArticleId);
+    });
+  }
+
   // In the full window, size the middle (summary/notes/chat) vs. the full-text
   // panel according to how long the article text and notes/summary are.
   function sizeFullPanels(a) {
@@ -436,6 +447,8 @@
 
   function showDetail(a) {
     detailBody.innerHTML = "";
+    activeArticleId = a.id;
+    applyActiveRow();
     const title = document.createElement("div");
     title.className = "detail-title";
     title.textContent = a.title || "(ללא כותרת)";
@@ -449,10 +462,32 @@
     const meta = document.createElement("div");
     meta.className = "status muted";
     meta.textContent = "רשימה: " + listName(a.listId) + "  |  " + (a.savedAt ? new Date(a.savedAt).toLocaleString() : "");
+    meta.dataset.base = meta.textContent;
 
     const content = document.createElement("div");
     content.className = "detail-content";
-    content.textContent = a.content || "(אין גוף מאמר)";
+    content.contentEditable = "true";
+    content.spellcheck = false;
+    content.dataset.placeholder = "אין גוף מאמר";
+    content.textContent = a.content || "";
+    content.title = "לחצו לעריכה — נשמר אוטומטית";
+
+    const saveContent = async () => {
+      const val = content.innerText != null ? content.innerText.replace(/\s+$/, "") : (content.textContent || "");
+      if (val === a.content) return;
+      try {
+        await updateArticle(a.id, { content: val });
+        a.content = val;
+        articles = await getArticles();
+        meta.className = "status success";
+        meta.textContent = meta.dataset.base + "  |  הטקסט נערך ונשמר ✓";
+        setTimeout(() => { meta.className = "status muted"; meta.textContent = meta.dataset.base; }, 2500);
+      } catch (e) {
+        meta.className = "status error";
+        meta.textContent = "שמירת הטקסט נכשלה: " + e.message;
+      }
+    };
+    content.addEventListener("blur", saveContent);
 
     detailBody.appendChild(title);
     detailBody.appendChild(url);
