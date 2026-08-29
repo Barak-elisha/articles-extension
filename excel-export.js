@@ -48,8 +48,16 @@ function styleSheet(ws) {
 
 const excelMime = "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet";
 
-function escXml(s) {
+// Strips characters that are invalid in XML 1.0 (control chars apart from \t \n \r,
+// noncharacters, and lone surrogate halves).
+function sanitizeXml(s) {
   return String(s)
+    .replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F\uFFFE\uFFFF]/g, "")
+    .replace(/(?:[\uD800-\uDBFF](?![\uDC00-\uDFFF]))|(?:(?<![\uD800-\uDBFF])[\uDC00-\uDFFF])/g, "");
+}
+
+function escXml(s) {
+  return sanitizeXml(String(s))
     .replace(/&/g, "&amp;")
     .replace(/</g, "&lt;")
     .replace(/>/g, "&gt;")
@@ -109,9 +117,15 @@ function runToXml(r) {
   if (r.italic) props += "<i/>";
   if (r.underline) props += "<u/>";
   if (r.size) props += '<sz val="' + r.size + '"/>';
-  if (r.color) props += '<color rgb="' + r.color + '"/>';
+  if (r.color) props += '<color rgb="' + argb(r.color) + '"/>';
   if (!props) props = '<sz val="11"/>';
   return "<r><rPr>" + props + '<rFont val="Calibri"/></rPr><t xml:space="preserve">' + escXml(r.text) + "</t></r>";
+}
+
+// The schema requires an 8-digit ARGB value; colors arrive here as 6-digit RGB.
+function argb(c) {
+  const h = String(c).replace(/^#/, "").toUpperCase();
+  return h.length === 8 ? h : "FF" + h;
 }
 
 function parseColor(c) {
@@ -257,13 +271,40 @@ async function applyHyperlinks(zip, colLetter) {
 
 async function enhanceWorkbook(arrayBuf, summaryCol, urlCol, notesCol) {
   if (!(arrayBuf && window.JSZip)) return arrayBuf;
-  const zip = await window.JSZip.loadAsync(arrayBuf);
-  const richCols = [];
-  if (summaryCol) richCols.push({ col: summaryCol, type: "markdown" });
-  if (notesCol) richCols.push({ col: notesCol, type: "html" });
-  if (richCols.length) await applyRichText(zip, richCols);
-  if (urlCol) await applyHyperlinks(zip, urlCol);
-  return zip.generateAsync({ type: "uint8array", mimeType: excelMime });
+  try {
+    const zip = await window.JSZip.loadAsync(arrayBuf);
+    const richCols = [];
+    if (summaryCol) richCols.push({ col: summaryCol, type: "markdown" });
+    if (notesCol) richCols.push({ col: notesCol, type: "html" });
+    if (richCols.length) await applyRichText(zip, richCols);
+    if (urlCol) await applyHyperlinks(zip, urlCol);
+    const bytes = await zip.generateAsync({ type: "uint8array", mimeType: excelMime });
+    if (!(await isWellFormedWorkbook(bytes))) return arrayBuf;
+    return bytes;
+  } catch (e) {
+    return arrayBuf;
+  }
+}
+
+// Re-opens the produced package and verifies every XML part is well formed.
+// If any part is broken, the raw (known-good) SheetJS output is returned instead.
+async function isWellFormedWorkbook(bytes) {
+  if (typeof window === "undefined" || !window.DOMParser) return true;
+  try {
+    const zip = await window.JSZip.loadAsync(bytes);
+    const results = await Promise.all(
+      Object.keys(zip.files)
+        .filter((p) => /\.xml$|\.rels$/.test(p))
+        .map(async (p) => {
+          const xml = await zip.file(p).async("string");
+          const doc = new window.DOMParser().parseFromString(xml, "application/xml");
+          return !doc.querySelector("parsererror");
+        })
+    );
+    return results.every(Boolean);
+  } catch (e) {
+    return false;
+  }
 }
 
 async function buildExcelBlob(articles, lists) {

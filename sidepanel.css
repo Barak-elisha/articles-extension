@@ -269,6 +269,41 @@ body {
 
 .hidden { display: none !important; }
 
+/* Full-window layout: all articles | summary+notes | full text */
+@media (min-width: 760px) {
+  body.full {
+    display: grid;
+    grid-template-columns: minmax(250px, 300px) 1fr 1fr;
+    grid-template-rows: auto 1fr;
+    gap: 14px 16px;
+    align-items: start;
+    padding: 16px;
+  }
+  body.full .app-header { grid-column: 1 / -1; }
+  body.full #mainView { grid-column: 1; }
+  body.full #detailView { grid-column: 2 / -1; }
+  body.full #settingsView { grid-row: 2; grid-column: 2 / -1; }
+  body.full #detailView > .btn { display: none; }
+  body.full #detailBody {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    grid-auto-rows: min-content;
+    gap: 12px 16px;
+    align-items: start;
+  }
+  body.full #detailBody .detail-title { grid-column: 1 / -1; }
+  body.full #detailBody .detail-url { grid-column: 1 / -1; }
+  body.full #detailBody > .status { grid-column: 1 / -1; }
+  body.full #detailBody .detail-summary { grid-column: 1; grid-row: 4; }
+  body.full #detailBody .notes-box { grid-column: 1; grid-row: 5; }
+  body.full #detailBody .detail-content {
+    grid-column: 2;
+    grid-row: 4 / span 2;
+    max-height: none;
+    overflow: visible;
+  }
+}
+
 /* Detail view */
 .detail { margin-top: 8px; }
 .detail-title { font-size: 16px; font-weight: 700; margin: 10px 0 4px; }

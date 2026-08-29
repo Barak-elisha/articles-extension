@@ -1,4 +1,7 @@
 (function () {
+  const isFull = new URLSearchParams(location.search).get("mode") === "full";
+  if (isFull) document.body.classList.add("full");
+
   let lists = [];
   let articles = [];
   let activeListId = null;
@@ -503,6 +506,19 @@
     notes.dataset.placeholder = "הוסף הערות אישיות...";
     const toolbar = document.createElement("div");
     toolbar.className = "notes-toolbar";
+    const captureRange = () => {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && notes.contains(sel.anchorNode)) return sel.getRangeAt(0).cloneRange();
+      return null;
+    };
+    const restoreRange = (rng) => {
+      notes.focus();
+      if (rng) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(rng);
+      }
+    };
     const cmds = [
       { label: "ב", cmd: "bold", title: "מודגש" },
       { label: "I", cmd: "italic", title: "נטוי" },
@@ -537,13 +553,15 @@
       opt.textContent = o.label;
       sizeSel.appendChild(opt);
     });
-    sizeSel.addEventListener("mousedown", (e) => e.preventDefault());
+    let savedRange = null;
+    sizeSel.addEventListener("mousedown", () => { savedRange = captureRange(); });
     sizeSel.addEventListener("change", () => {
-      if (!sizeSel.value) { sizeSel.value = ""; return; }
-      notes.focus();
-      document.execCommand("fontSize", false, sizeSel.value);
-      notes.focus();
+      const v = sizeSel.value;
       sizeSel.value = "";
+      if (!v) return;
+      restoreRange(savedRange);
+      document.execCommand("fontSize", false, v);
+      notes.focus();
     });
     toolbar.appendChild(sizeSel);
     const colorInput = document.createElement("input");
@@ -551,9 +569,9 @@
     colorInput.className = "notes-color";
     colorInput.value = "#1d2433";
     colorInput.title = "צבע טקסט";
-    colorInput.addEventListener("mousedown", (e) => e.preventDefault());
+    colorInput.addEventListener("mousedown", () => { savedRange = captureRange(); });
     colorInput.addEventListener("input", () => {
-      notes.focus();
+      restoreRange(savedRange);
       document.execCommand("foreColor", false, colorInput.value.toUpperCase());
       notes.focus();
     });
@@ -580,10 +598,12 @@
     detailBody.appendChild(notesBox);
     detailBody.appendChild(content);
     detailView.classList.remove("hidden");
-    requestAnimationFrame(() => {
-      const box = detailView.querySelector(".detail-summary");
-      (box || detailView).scrollIntoView({ behavior: "smooth", block: "center" });
-    });
+    if (!isFull) {
+      requestAnimationFrame(() => {
+        const box = detailView.querySelector(".detail-summary");
+        (box || detailView).scrollIntoView({ behavior: "smooth", block: "center" });
+      });
+    }
   }
 
   /* ---------- Events ---------- */
@@ -607,12 +627,7 @@
     mainView.classList.remove("hidden");
   });
   expandBtn.addEventListener("click", () => {
-    chrome.windows.create({
-      url: chrome.runtime.getURL("sidepanel.html"),
-      type: "popup",
-      width: 820,
-      height: 940,
-    });
+    chrome.tabs.create({ url: chrome.runtime.getURL("sidepanel.html") + "?mode=full" });
   });
   backBtn.addEventListener("click", () => detailView.classList.add("hidden"));
 
@@ -621,7 +636,9 @@
     if (activeListId) await setSetting("activeListId", activeListId);
   });
 
-  loadAll();
+loadAll().then(() => {
+    if (isFull && articles.length) showDetail(articles[0]);
+  });
 
   // refresh when panel becomes visible
   document.addEventListener("visibilitychange", () => {
