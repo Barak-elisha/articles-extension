@@ -389,21 +389,16 @@
       textFr = Math.max(3, Math.min(8, Math.round(ratio * 10)));
       midFr = Math.max(2, 10 - textFr);
     }
-    detailView.style.gridTemplateColumns = midFr + "fr " + textFr + "fr";
+    detailBody.style.gridTemplateColumns = midFr + "fr " + textFr + "fr";
   }
 
-  // Binds the detail column height to the articles column, so the page ends
-  // where the lists end and every other panel scrolls internally instead.
+  // Binds the detail column height to the full (natural) height of the lists
+  // column, so the page ends where the lists end while the summary, notes,
+  // chat and full text scroll internally when there is not enough room.
   function fitDetailToLists() {
     if (!isFull) return;
-    mainView.style.alignSelf = "start";
-    detailBody.style.alignSelf = "start";
-    detailBody.style.height = "";
-    const natural = detailBody.getBoundingClientRect().height;
     const mainH = mainView.getBoundingClientRect().height;
-    detailBody.style.height = Math.max(240, mainH, natural) + "px";
-    mainView.style.alignSelf = "";
-    detailBody.style.alignSelf = "";
+    detailBody.style.height = Math.max(240, mainH) + "px";
   }
 
   function mdInline(s) {
@@ -506,6 +501,9 @@
     detailBody.appendChild(title);
     detailBody.appendChild(url);
     detailBody.appendChild(meta);
+    const detailMid = document.createElement("div");
+    detailMid.className = "detail-mid";
+    detailBody.appendChild(detailMid);
     const summaryBox = document.createElement("div");
     summaryBox.className = "detail-summary";
     const headRow = document.createElement("div");
@@ -527,7 +525,7 @@
     sumStatus.className = "status muted";
     summaryBox.appendChild(sText);
     summaryBox.appendChild(sumStatus);
-    detailBody.appendChild(summaryBox);
+    detailMid.appendChild(summaryBox);
 
     regenBtn.addEventListener("click", async () => {
       if (!aiApiKey) {
@@ -662,7 +660,7 @@
     notesBox.appendChild(toolbar);
     notesBox.appendChild(notes);
     notesBox.appendChild(noteStatus);
-    detailBody.appendChild(notesBox);
+    detailMid.appendChild(notesBox);
 
     const chatBox = document.createElement("div");
     chatBox.className = "chat-box";
@@ -747,7 +745,7 @@
     chatBox.appendChild(chatMessages);
     chatBox.appendChild(chatStatus);
     chatBox.appendChild(chatRow);
-    detailBody.appendChild(chatBox);
+    detailMid.appendChild(chatBox);
     detailBody.appendChild(content);
     detailView.classList.remove("hidden");
     if (isFull) {
