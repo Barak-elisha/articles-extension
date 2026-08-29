@@ -58,16 +58,39 @@
       <div id="aiSettings" class="hidden">
         <div class="label" data-i18n="aiSummaryLabel">AI summary (Google AI Studio)</div>
         <input id="apiKeyInput" class="input" type="password" data-i18n-placeholder="apiKeyPlaceholder" placeholder="Enter the API key from Google AI Studio" />
-        <input id="modelInput" class="input" type="text" data-i18n-placeholder="modelPlaceholder" placeholder="Model (e.g. gemini-2.0-flash)" />
+        <div class="label" data-i18n="modelLabel">Model</div>
+        <div class="row">
+          <select id="modelSelect" class="select">
+            <option value="" data-i18n="modelPlaceholder">Model (e.g. gemini-2.0-flash)</option>
+          </select>
+          <button id="loadModelsBtn" class="btn btn-secondary btn-small" data-i18n="loadModels">Refresh models</button>
+        </div>
+        <div id="modelStatus" class="status muted"></div>
         <button id="saveApiBtn" class="btn btn-secondary btn-small" data-i18n="saveKey">Save key</button>
       </div>
     </section>
-    <div class="footer">Article Saver v1.0.0 · MIT License · © 2026 Barak Elisha</div>
+    <div class="footer">
+      <span>Article Saver v1.0.0 · MIT License · © 2026 Barak Elisha</span>
+      <span class="footer-sep">·</span>
+      <a href="https://github.com/Barak-elisha/articles-extension" target="_blank" rel="noopener noreferrer">GitHub Repository</a>
+    </div>
   </div>
 
   <div id="detailView" class="detail hidden">
     <button id="backBtn" class="btn btn-small" data-i18n="back">← Back</button>
     <div id="detailBody"></div>
+  </div>
+
+  <div id="dupModal" class="modal-overlay hidden">
+    <div class="modal" role="dialog" aria-modal="true">
+      <div class="modal-title" data-i18n="dupTitle">This article was already saved</div>
+      <div class="modal-body" data-i18n="dupMessage">An article with this URL was already saved. What would you like to do?</div>
+      <div class="modal-actions">
+        <button id="dupSaveAgainBtn" class="btn btn-primary" data-i18n="dupSaveAgain">Save again (new article)</button>
+        <button id="dupUpdateBtn" class="btn btn-secondary" data-i18n="dupUpdate">Update the existing article</button>
+        <button id="dupCancelBtn" class="btn btn-danger" data-i18n="dupCancel">Cancel</button>
+      </div>
+    </div>
   </div>
 
   <script src="lib/jszip.min.js"></script>

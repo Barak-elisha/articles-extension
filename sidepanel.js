@@ -26,6 +26,18 @@
       .replace(/\s+$/, "");
   }
 
+  // Auto-aligns the full text: right-to-left for Hebrew/Arabic, otherwise left.
+  function detectDirection(s) {
+    return /[\u0590-\u05FF\u0600-\u06FF]/.test(String(s || "")) ? "rtl" : "ltr";
+  }
+
+  // Plain text -> sanitized HTML for the contentEditable full-text editor.
+  function contentToHtml(s) {
+    const str = String(s || "");
+    if (/<[a-z][\s\S]*>/i.test(str)) return sanitizeHtml(str);
+    return sanitizeHtml(str.replace(/\n/g, "<br>\n"));
+  }
+
   function articleMatches(a, query) {
     const q = query.toLowerCase().trim();
     if (!q) return true;
@@ -49,7 +61,9 @@
   const detailBody = $("#detailBody");
   const backBtn = $("#backBtn");
   const apiKeyInput = $("#apiKeyInput");
-  const modelInput = $("#modelInput");
+  const modelSelect = $("#modelSelect");
+  const loadModelsBtn = $("#loadModelsBtn");
+  const modelStatus = $("#modelStatus");
   const saveApiBtn = $("#saveApiBtn");
   const aiToggle = $("#aiToggle");
   const aiSettingsToggle = $("#aiSettingsToggle");
@@ -60,6 +74,34 @@
   const mainView = $("#mainView");
   const expandBtn = $("#expandBtn");
   const langSelect = $("#langSelect");
+
+  const dupModal = $("#dupModal");
+  const dupSaveAgainBtn = $("#dupSaveAgainBtn");
+  const dupUpdateBtn = $("#dupUpdateBtn");
+  const dupCancelBtn = $("#dupCancelBtn");
+
+  let dupResolve = null;
+  function promptDuplicateSave() {
+    applyI18n();
+    dupModal.classList.remove("hidden");
+    return new Promise((resolve) => {
+      dupResolve = resolve;
+    });
+  }
+  function closeDuplicateModal(result) {
+    dupModal.classList.add("hidden");
+    if (dupResolve) {
+      const r = dupResolve;
+      dupResolve = null;
+      r(result);
+    }
+  }
+  dupSaveAgainBtn.addEventListener("click", () => closeDuplicateModal("new"));
+  dupUpdateBtn.addEventListener("click", () => closeDuplicateModal("update"));
+  dupCancelBtn.addEventListener("click", () => closeDuplicateModal("cancel"));
+  dupModal.addEventListener("click", (e) => {
+    if (e.target === dupModal) closeDuplicateModal("cancel");
+  });
 
   async function loadAll() {
     lists = await getLists();
@@ -89,7 +131,63 @@
     const model = await getSetting("geminiModel");
     aiModel = model ? model.value || "gemini-2.0-flash" : "gemini-2.0-flash";
     apiKeyInput.value = aiApiKey;
-    modelInput.value = aiModel;
+    populateModelSelect([]);
+    if (aiModel) {
+      const opt = document.createElement("option");
+      opt.value = aiModel;
+      opt.textContent = aiModel;
+      modelSelect.appendChild(opt);
+      modelSelect.value = aiModel;
+    }
+    if (aiApiKey) loadGeminiModels(aiApiKey).catch(() => {});
+  }
+
+  async function loadGeminiModels(key) {
+    modelStatus.className = "status muted";
+    modelStatus.textContent = t("modelStatusLoading");
+    try {
+      const resp = await fetch(
+        "https://generativelanguage.googleapis.com/v1beta/models?key=" + encodeURIComponent(key)
+      );
+      if (!resp.ok) throw new Error("HTTP " + resp.status);
+      const json = await resp.json();
+      const names = (json.models || [])
+        .map((m) => (m.name || "").replace(/^models\//, ""))
+        .filter((n) => /^gemini-/.test(n))
+        .sort();
+      populateModelSelect(names);
+      modelStatus.className = "status success";
+      modelStatus.textContent = t("modelStatusLoaded") + " " + names.length;
+      return names;
+    } catch (err) {
+      modelStatus.className = "status error";
+      modelStatus.textContent = t("modelLoadFailed") + (err.message || "");
+      throw err;
+    }
+  }
+
+  function populateModelSelect(names) {
+    const prev = modelSelect.value;
+    const list = (names || []).filter(Boolean);
+    if (prev && !list.includes(prev)) list.unshift(prev);
+    modelSelect.innerHTML = "";
+    if (!list.length) {
+      const opt = document.createElement("option");
+      opt.value = aiModel || "";
+      opt.textContent = aiModel || "";
+      modelSelect.appendChild(opt);
+      modelSelect.value = opt.value;
+      return;
+    }
+    list.forEach((n) => {
+      const opt = document.createElement("option");
+      opt.value = n;
+      opt.textContent = n;
+      modelSelect.appendChild(opt);
+    });
+    if (prev && list.includes(prev)) modelSelect.value = prev;
+    else if (list.includes("gemini-2.0-flash")) modelSelect.value = "gemini-2.0-flash";
+    else modelSelect.value = list[0];
   }
 
   function render() {
@@ -249,12 +347,36 @@
     try {
       const resp = await chrome.runtime.sendMessage({ type: "EXTRACT_ARTICLE", lang: window.I18N.lang });
       if (!resp || !resp.ok) throw new Error((resp && resp.error) || t("extractError"));
-      const article = await addArticle({
-        listId: activeListId,
+
+      const data = {
         title: resp.data.title,
         content: normalizeBody(resp.data.content),
         url: resp.data.url,
-      });
+      };
+
+      const existing = data.url && articles.find((a) => a.url && a.url === data.url);
+
+      let article;
+      if (existing) {
+        const choice = await promptDuplicateSave();
+        if (choice === "cancel") {
+          saveStatus.className = "status";
+          saveStatus.textContent = "";
+          return;
+        }
+        if (choice === "update") {
+          article = await updateArticle(existing.id, {
+            title: data.title,
+            content: data.content,
+            url: data.url,
+          });
+        } else {
+          article = await addArticle({ listId: activeListId, ...data });
+        }
+      } else {
+        article = await addArticle({ listId: activeListId, ...data });
+      }
+
       if (aiToggle.checked) {
         if (!aiApiKey) {
           saveStatus.className = "status error";
@@ -368,10 +490,15 @@
 
   async function saveAiSettings() {
     const key = apiKeyInput.value.trim();
-    const model = modelInput.value.trim() || "gemini-2.0-flash";
     await setSetting("geminiApiKey", key);
-    await setSetting("geminiModel", model);
     aiApiKey = key;
+    if (key) {
+      try {
+        await loadGeminiModels(key);
+      } catch (e) {}
+    }
+    const model = modelSelect.value || "gemini-2.0-flash";
+    await setSetting("geminiModel", model);
     aiModel = model;
     alert(t("aiSaved"));
   }
@@ -513,12 +640,13 @@
     content.contentEditable = "true";
     content.spellcheck = false;
     content.dataset.placeholder = t("noBody");
-    content.textContent = normalizeBody(a.content);
+    content.dir = detectDirection(a.content);
+    content.innerHTML = contentToHtml(a.content);
     content.title = t("editHint");
 
     const saveContent = async () => {
-      const raw = content.innerText != null ? content.innerText : (content.textContent || "");
-      const val = normalizeBody(raw);
+      const html = sanitizeHtml(content.innerHTML);
+      const val = normalizeBody(html);
       if (val === a.content) return;
       try {
         await updateArticle(a.id, { content: val });
@@ -532,6 +660,7 @@
         meta.textContent = t("textSaveFailed") + e.message;
       }
     };
+    let contentSavedRange = null;
     content.addEventListener("blur", saveContent);
 
     const contentPanel = document.createElement("div");
@@ -591,24 +720,53 @@
       updateMatchInfo();
     };
 
+    const removeMarks = () => {
+      const nodes = Array.from(content.querySelectorAll("mark"));
+      nodes.forEach((m) => {
+        const frag = document.createDocumentFragment();
+        while (m.firstChild) frag.appendChild(m.firstChild);
+        m.replaceWith(frag);
+      });
+    };
+
+    const highlightNode = (node, query) => {
+      const text = node.nodeValue;
+      if (!text) return;
+      const lower = text.toLowerCase();
+      const ql = query.toLowerCase();
+      const frag = document.createDocumentFragment();
+      let last = 0;
+      let idx;
+      while ((idx = lower.indexOf(ql, last)) !== -1) {
+        if (idx > last) frag.appendChild(document.createTextNode(text.slice(last, idx)));
+        const mark = document.createElement("mark");
+        mark.textContent = text.slice(idx, idx + query.length);
+        frag.appendChild(mark);
+        last = idx + query.length;
+      }
+      if (last < text.length) frag.appendChild(document.createTextNode(text.slice(last)));
+      if (frag.childNodes.length && node.parentNode) node.parentNode.replaceChild(frag, node);
+    };
+
     const applySearch = () => {
       const q = searchBox.value;
+      removeMarks();
       if (!q) {
         content.contentEditable = "true";
-        content.textContent = normalizeBody(a.content);
         clearHighlights();
         return;
       }
       content.contentEditable = "false";
-      const escaped = (a.content || "").replace(/[&<>"']/g, (c) => (
-        { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
-      ));
-      const re = new RegExp(escapeRegExp(q), "gi");
-      let html = escaped;
-      if (re.source !== "(?:)") {
-        html = escaped.replace(re, (m) => `<mark>${m}</mark>`);
+      const query = q.trim();
+      if (query) {
+        const nodes = [];
+        const walker = document.createTreeWalker(content, NodeFilter.SHOW_TEXT);
+        let n;
+        while ((n = walker.nextNode())) {
+          if (/[^\s]/.test(n.nodeValue)) nodes.push(n);
+        }
+        nodes.forEach((node) => highlightNode(node, query));
       }
-      content.innerHTML = html;
       content.scrollTop = 0;
       marks = Array.from(content.querySelectorAll("mark"));
       currentIndex = -1;
@@ -623,7 +781,64 @@
     prevBtn.addEventListener("click", () => gotoMatch(currentIndex - 1));
     nextBtn.addEventListener("click", () => gotoMatch(currentIndex + 1));
 
+    const captureContentRange = () => {
+      const sel = window.getSelection();
+      if (sel && sel.rangeCount > 0 && content.contains(sel.anchorNode)) return sel.getRangeAt(0).cloneRange();
+      return null;
+    };
+    const restoreContentRange = (rng) => {
+      content.focus();
+      if (rng) {
+        const sel = window.getSelection();
+        sel.removeAllRanges();
+        sel.addRange(rng);
+      }
+    };
+    const applyHighlight = (color) => {
+      restoreContentRange(contentSavedRange);
+      document.execCommand("hiliteColor", false, color.toUpperCase());
+      content.focus();
+    };
+
+    const contentToolbar = document.createElement("div");
+    contentToolbar.className = "content-toolbar";
+    const markerLabel = document.createElement("span");
+    markerLabel.className = "content-toolbar-label";
+    markerLabel.textContent = t("highlight");
+    contentToolbar.appendChild(markerLabel);
+    const presetColors = ["#ffe58a", "#b5f7b0", "#b3e5fc", "#ffd0f0", "#ffcc80", "#d7b8ff"];
+    presetColors.forEach((c) => {
+      const sw = document.createElement("span");
+      sw.className = "content-swatch";
+      sw.style.background = c;
+      sw.title = t("highlightColor") + " " + c;
+      sw.addEventListener("mousedown", (e) => { e.preventDefault(); contentSavedRange = captureContentRange(); });
+      sw.addEventListener("click", () => applyHighlight(c));
+      contentToolbar.appendChild(sw);
+    });
+    const customColor = document.createElement("input");
+    customColor.type = "color";
+    customColor.className = "content-color";
+    customColor.value = "#ffff00";
+    customColor.title = t("highlightColor");
+    customColor.addEventListener("mousedown", () => { contentSavedRange = captureContentRange(); });
+    customColor.addEventListener("input", () => applyHighlight(customColor.value));
+    contentToolbar.appendChild(customColor);
+    const clearMarker = document.createElement("button");
+    clearMarker.type = "button";
+    clearMarker.className = "icon-btn notes-tb";
+    clearMarker.textContent = "✕";
+    clearMarker.title = t("removeHighlight");
+    clearMarker.addEventListener("mousedown", (e) => { e.preventDefault(); contentSavedRange = captureContentRange(); });
+    clearMarker.addEventListener("click", () => {
+      restoreContentRange(contentSavedRange);
+      document.execCommand("hiliteColor", false, "transparent");
+      content.focus();
+    });
+    contentToolbar.appendChild(clearMarker);
+
     contentPanel.appendChild(searchRow);
+    contentPanel.appendChild(contentToolbar);
     contentPanel.appendChild(content);
 
     detailBody.appendChild(titleRow);
@@ -829,10 +1044,26 @@
 
     const renderChat = () => {
       chatMessages.innerHTML = "";
-      (a.chat || []).forEach((m) => {
+      (a.chat || []).forEach((m, idx) => {
         const div = document.createElement("div");
         div.className = "chat-msg " + (m.role === "user" ? "chat-user" : "chat-ai");
         div.innerHTML = renderMarkdown(m.text);
+        div.title = t("chatDeleteHint");
+        div.addEventListener("contextmenu", async (e) => {
+          e.preventDefault();
+          const arr = (a.chat || []).slice();
+          if (idx >= arr.length) return;
+          arr.splice(idx, 1);
+          a.chat = arr;
+          try {
+            await updateArticle(a.id, { chat: arr });
+            articles = await getArticles();
+          } catch (err) {
+            chatStatus.className = "status error";
+            chatStatus.textContent = t("chatDeleteFailed") + err.message;
+          }
+          renderChat();
+        });
         chatMessages.appendChild(div);
       });
       chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -916,6 +1147,15 @@
   newListName.addEventListener("keydown", (e) => { if (e.key === "Enter") onAddList(); });
   exportBtn.addEventListener("click", exportExcel);
   saveApiBtn.addEventListener("click", saveAiSettings);
+  loadModelsBtn.addEventListener("click", () => {
+    const key = apiKeyInput.value.trim() || aiApiKey;
+    if (!key) {
+      modelStatus.className = "status error";
+      modelStatus.textContent = t("needApiKey");
+      return;
+    }
+    loadGeminiModels(key).catch(() => {});
+  });
   aiSettingsToggle.addEventListener("click", () => aiSettings.classList.toggle("hidden"));
   settingsBtn.addEventListener("click", () => {
     applyI18n();

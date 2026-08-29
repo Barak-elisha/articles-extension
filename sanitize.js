@@ -51,7 +51,7 @@
       const prop = decl.slice(0, idx).trim().toLowerCase();
       const val = decl.slice(idx + 1).trim();
       if (/expression|url\(|javascript:/i.test(val)) return;
-      if (/^(background|background-image|cursor|behavior|content)$/.test(prop)) return;
+      if (/^(background-image|cursor|behavior|content)$/.test(prop)) return;
       out.push(prop + ": " + val);
     });
     return out.join("; ");

@@ -12,13 +12,14 @@ A Chrome extension (Manifest V3, `version 1.0.0`) for saving articles to lists, 
 - **Filter by active list** — select a list in the "Active list" dropdown (or "All lists") to show only that list's articles and hide the rest.
 - **Search your articles** — a search box filters articles by title, summary, notes, URL **and full article content**, with a live result count and the last-opened article kept highlighted.
 - **Save article** from the active tab — extracts title, article body and URL, optionally with an automatic AI summary.
-- **Chat with AI about each article** — a built-in chat that only references the article's body. Chat messages render formatting (bold, italic, lists) inline, are persisted, and are exported to Excel.
+- **Chat with AI about each article** — a built-in chat grounded in the article's body but also able to answer broader questions about the article (its topic, author, journal, concepts) with general knowledge. Chat messages render formatting (bold, italic, lists) inline, are persisted, and are exported to Excel.
 - **Personal notes** per article with a rich editor (bold, italic, lists, font size and color), saved automatically.
-- **Edit the full article text** directly in the panel, with automatic saving and automatic cleanup of 2+ blank lines.
+- **Edit the full article text** directly in the panel, with automatic saving, automatic cleanup of 2+ blank lines, and a color **highlight marker** (a palette of preset colors or a custom one) whose highlights are persisted.
+- **Auto-aligned full text** — the article text automatically aligns right for Hebrew/Arabic and left for English/Latin.
 - **Edit the article title** inline with a small pencil next to it.
 - **Full-window mode** — three equal columns (a third each) on a full screen: lists | summary+notes+chat | full text.
 - **Excel export** — an "All articles" sheet plus one sheet per list, with rich text, clickable links, an APA citation and an AI-chat column.
-- **AI settings** — API key and model from Google AI Studio (default: `gemini-2.0-flash`).
+- **AI settings** — API key from Google AI Studio; on saving the key the extension fetches all available Gemini models from Google's API and lets you pick one from a dropdown (default: `gemini-2.0-flash`).
 - **Interface language** — switch between English and Hebrew in Settings (English is the default; the choice is persisted and also drives the AI output language and the Excel headers).
 
 ## Installation
@@ -32,7 +33,7 @@ A Chrome extension (Manifest V3, `version 1.0.0`) for saving articles to lists, 
 
 1. **Create a list** in the "Manage lists" section.
 2. Choose an active list and click **"Save current article"**.
-3. (Optional) In Settings → "AI settings", paste an **API key** from Google AI Studio and pick a model; click **Save key**.
+3. (Optional) In Settings → "AI settings", paste an **API key** from Google AI Studio and click **Save key**. The extension then queries Google's `models` endpoint with your key to fill the **Model** dropdown with every available Gemini model — pick one and click **Save key** again (or use **Refresh models** to reload the list).
 4. (Optional) In Settings → "Interface language", choose **English** or **עברית** (default: English).
 5. Click **"Export to Excel"** to save the workbook (`articles.xlsx` in English, `מאמרים.xlsx` in Hebrew).
 
@@ -45,6 +46,8 @@ A Chrome extension (Manifest V3, `version 1.0.0`) for saving articles to lists, 
 - **Search within the full text** — a search bar above the article text highlights every match, shows a running count, and lets you jump between matches with ▲/▼.
 - **Edit the title** — click the small pencil (✎) next to the title, type, then press Enter (or click away) to save; Esc cancels.
 - The full text is cleaned automatically on save: 2+ consecutive blank lines collapse to one, and trailing spaces/newlines are removed.
+- **Highlight important text** — select text and pick a color from the marker bar above the text (preset palette or custom color); highlights are saved with the article.
+- **Auto direction** — Hebrew/Arabic articles align right, English/Latin articles align left, automatically.
 
 ### Full-window mode (⛶)
 
@@ -59,9 +62,11 @@ The extension talks to Google Gemini (v1beta `generateContent`) in two modes:
 | Mode | background message | Description |
 | --- | --- | --- |
 | Summary | `GENERATE_SUMMARY` | A comprehensive summary of the article body in the interface language (up to 12,000 characters sent, up to 2,048 output tokens). |
-| Chat | `CHAT_ARTICLE` | Q&A about the article only; `systemInstruction` tells the model to answer solely from the article and in the interface language, and the last 20 messages are sent. |
+| Chat | `CHAT_ARTICLE` | Q&A about the article in the interface language; `systemInstruction` anchors factual answers to the article's content (noting when an answer goes beyond it) while allowing relevant general knowledge, and the last 20 messages are sent. |
 
 An API key is required. The "Add AI summary" checkbox controls whether every save generates a summary automatically.
+
+**Model dropdown** — when you save an API key (or click **Refresh models**), the panel calls Google's Gemini `models` endpoint with your key and fills the **Model** dropdown with every available Gemini model (names are filtered to `gemini-*` and sorted). Your previously chosen model stays selected if it is still available; otherwise `gemini-2.0-flash` is chosen by default. The chosen model is stored as `geminiModel`.
 
 ### Security & API key
 
@@ -75,7 +80,7 @@ An API key is required. The "Add AI summary" checkbox controls whether every sav
 
 The extension renders and stores content that originates outside your control — article bodies, titles, AI output — so it never inserts that data as raw HTML:
 
-- **Article body & title** are always rendered with `textContent` (never `innerHTML`), so HTML from the source page is shown as plain text.
+- **Article body & title** — the title is always rendered with `textContent`. The full-text editor renders through `sanitizeHtml` and is always **sanitized on save** (`sanitizeHtml(content.innerHTML)`), so HTML from the source page or pasted in is neutralized before it is stored; color highlights survive because `background-color` (a non-URL, text-affecting property) is allowlisted. On extraction the body is stored as plain text.
 - **AI summaries** are rendered through `renderMarkdown`, which HTML-escapes the entire input (`&<>"`) before building any markup.
 - **Notes** (the only HTML the user can author) are passed through a self-contained sanitizer — `sanitizeHtml` in `sanitize.js` — before rendering in the editor and before the Excel rich-text export. It is an allowlist (no external library, works fully offline): it drops `<script>`, `<style>`, `<iframe>`, `<object>`, `<embed>`, `<form>`, interactive elements and every `on*` handler, strips `javascript:`/`vbscript:`/`data:`/`file:` URLs and `expression()`/`url()` CSS, while keeping the safe formatting tags (`b`, `i`, `u`, `font`, lists, …). A malicious `<img onerror=…>` or `<a href="javascript:…">` inside a note is neutralized before it ever reaches the live DOM.
 - **Anchor links** produced by the sanitizer always get `rel="noopener noreferrer"`.
@@ -152,8 +157,10 @@ To extract from any site, the extension needs broad host access (`<all_urls>`). 
 - `window.I18N` (`i18n.js`) — `load()`/`set()` read and write the `uiLang` setting (default `en`), and `apply()` swaps `data-i18n*` strings and sets `<html lang>`/`dir`.
 - `renderLists()` / `renderArticleRow()` — built in the DOM (no templates). `renderLists` filters to the active list (or shows all when "All lists"), applies the search query via `articleMatches`, and shows a filtered/total count.
 - `articleMatches(a, query)` — case-insensitive search across `title`, `content`, `summary`, `notes` and `url`.
-- `normalizeBody(s)` — collapses 2+ consecutive blank lines into one and strips trailing whitespace/CRLF, applied on extraction, display, and save of the full text.
-- `showDetail(a)` — builds dynamically (per article): editable title row (pencil ✎), URL, meta (`meta.dataset.base`), `.detail-mid` with **AI summary** (+ "Regenerate"), **Notes** (`contentEditable` editor with a toolbar wired to `document.execCommand`), **Chat** (`renderChat`/`sendChat` rendering messages through `renderMarkdown`), and the full text (`contentEditable`, saved on `blur`) with an in-panel **search + highlight bar** (`applySearch`).
+- `normalizeBody(s)` — collapses 2+ consecutive blank lines into one and strips trailing whitespace/CRLF, applied on extraction and on save of the full text.
+- `detectDirection(s)` — returns `rtl` for Hebrew/Arabic text, `ltr` otherwise; applied to the full-text editor for auto-alignment.
+- `contentToHtml(s)` — converts plain text (with `<br>` for newlines) or existing HTML into sanitized HTML for the full-text `contentEditable` editor.
+- `showDetail(a)` — builds dynamically (per article): editable title row (pencil ✎), URL, meta (`meta.dataset.base`), `.detail-mid` with **AI summary** (+ "Regenerate"), **Notes** (`contentEditable` editor with a toolbar wired to `document.execCommand`), **Chat** (`renderChat`/`sendChat` rendering messages through `renderMarkdown`), and the full text (`contentEditable`, saved on `blur`) with an in-panel **search + highlight bar** (`applySearch`) and a **color-marker toolbar** (`execCommand("hiliteColor", …)`).
 - `renderMarkdown` / `mdInline` — convert Markdown (headings, bold, italic, lists, code, links) to styled, HTML-escaped output; used by summaries, and reused for chat bubbles.
 - `applyActiveRow()` — highlights `.article-item.active` based on `activeArticleId`.
 - `fitDetailToLists()` — in full mode binds `.detailBody` height to the lists column height; also runs on `resize`.
@@ -189,6 +196,13 @@ By using this extension you acknowledge that:
 ## Changelog
 
 ### Recent updates
+- The AI **Model** setting is now a dropdown: saving an API key (or clicking **Refresh models**) queries Google's `models` endpoint with your key and lists every available Gemini model, defaulting to `gemini-2.0-flash`.
+- Chat messages (both your questions and the AI answers) can be deleted by right-clicking them.
+- Added a **GitHub repository** link to the settings footer.
+- The article **chat** now accepts broader questions about the article (topic, author, journal, concepts), drawing on general knowledge when relevant, while factual answers stay grounded in the article and prompt-injection hardening is kept.
+- Added color **highlight markers** to the full-text editor (preset palette + custom color) via `execCommand("hiliteColor", …)`; highlights are persisted as sanitized HTML.
+- The full article text is now stored/rendered as sanitized HTML while keeping blank-line cleanup and security hardening.
+- The full text **auto-aligns** right for Hebrew/Arabic and left for English/Latin.
 - Added full-text search with live highlighting, a match counter, and ▲/▼ navigation in the article view.
 - Added list search (title, content, summary, notes and URL) with a filtered/total count and preserved active-row highlight.
 - The "My lists" view can now be filtered to the active list via an "All lists" option in the "Active list" dropdown.
