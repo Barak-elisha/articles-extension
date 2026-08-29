@@ -53,8 +53,9 @@
 
   // DOM-based cleanup for the sanitized HTML of the full-text editor: strips
   // whitespace-only filler (e.g. the tabs inside <div>\t\t</div>), collapses runs of
-  // 3+ consecutive empty block elements to 2 (mirroring the plain-text \n{3,} -> \n\n
-  // rule), collapses runs of 3+ consecutive <br>, and drops trailing empty blocks.
+  // 2+ consecutive empty block elements to a single empty block (one blank line,
+  // mirroring the plain-text \n{3,} -> \n\n rule), collapses runs of 3+ consecutive
+  // <br> to two (one blank line), and drops trailing empty blocks.
   function normalizeHtml(html) {
     const doc = new DOMParser().parseFromString(html, "text/html");
     const root = doc.body || doc.documentElement;
@@ -79,7 +80,7 @@
     blocks.forEach((b) => {
       if (isEmptyBlock(b)) {
         run++;
-        if (run > 2) b.parentNode.removeChild(b);
+        if (run > 1) b.parentNode.removeChild(b);
       } else {
         run = 0;
       }
