@@ -1178,12 +1178,10 @@
     const renderChat = () => {
       chatMessages.innerHTML = "";
       const chats = a.chat || [];
-      if (chats.length) {
-        const disclaimer = document.createElement("div");
-        disclaimer.className = "chat-disclaimer";
-        disclaimer.textContent = t("chatDisclaimer");
-        chatMessages.appendChild(disclaimer);
-      }
+      const disclaimer = document.createElement("div");
+      disclaimer.className = "chat-disclaimer";
+      disclaimer.textContent = t("chatDisclaimer");
+      chatMessages.appendChild(disclaimer);
       chats.forEach((m, idx) => {
         const div = document.createElement("div");
         div.className = "chat-msg " + (m.role === "user" ? "chat-user" : "chat-ai");
