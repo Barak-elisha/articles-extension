@@ -307,7 +307,7 @@ body {
 @media (min-width: 760px) {
   body.full {
     display: grid;
-    grid-template-columns: minmax(250px, 300px) 1fr 1fr;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr) minmax(0, 1fr);
     gap: 14px 16px;
     box-sizing: border-box;
     padding: 16px;
@@ -345,6 +345,7 @@ body {
     gap: 12px;
   }
   body.full #detailBody .detail-mid > * { flex: 0 1 auto; min-height: 0; margin-top: 0; margin-bottom: 0; }
+  body.full #detailBody .detail-mid .chat-box { flex: 1 1 auto; }
   body.full #detailBody .detail-summary { max-height: none; }
   body.full #detailBody .notes-box { display: flex; flex-direction: column; overflow: hidden; }
   body.full #detailBody .notes-input { flex: 1; min-height: 140px; }
