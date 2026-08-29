@@ -9,10 +9,13 @@ A Chrome extension (Manifest V3, `version 1.0.0`) for saving articles to lists, 
 
 - **Side panel** opens on the right, and opens automatically when the extension icon is clicked.
 - **List management** — create, rename and delete lists (deleting a list also deletes its articles).
+- **Filter by active list** — select a list in the "Active list" dropdown (or "All lists") to show only that list's articles and hide the rest.
+- **Search your articles** — a search box filters articles by title, summary, notes, URL **and full article content**, with a live result count and the last-opened article kept highlighted.
 - **Save article** from the active tab — extracts title, article body and URL, optionally with an automatic AI summary.
-- **Chat with AI about each article** — a built-in chat that only references the article's body. The chat is persisted and exported to Excel.
+- **Chat with AI about each article** — a built-in chat that only references the article's body. Chat messages render formatting (bold, italic, lists) inline, are persisted, and are exported to Excel.
 - **Personal notes** per article with a rich editor (bold, italic, lists, font size and color), saved automatically.
-- **Edit the full article text** directly in the panel, with automatic saving.
+- **Edit the full article text** directly in the panel, with automatic saving and automatic cleanup of 2+ blank lines.
+- **Edit the article title** inline with a small pencil next to it.
 - **Full-window mode** — three equal columns (a third each) on a full screen: lists | summary+notes+chat | full text.
 - **Excel export** — an "All articles" sheet plus one sheet per list, with rich text, clickable links, an APA citation and an AI-chat column.
 - **AI settings** — API key and model from Google AI Studio (default: `gemini-2.0-flash`).
@@ -38,7 +41,10 @@ A Chrome extension (Manifest V3, `version 1.0.0`) for saving articles to lists, 
 - Clicking an article title opens its details: **AI summary** (+ "Regenerate" button), **My notes**, **Chat with AI**, and the full text.
 - Article rows show **Open** (open the source in a new tab) and **✕** (delete).
 - The active article is highlighted in blue.
-- Summaries are rendered as Markdown (headings, lists, code, links).
+- Summaries and chat messages are rendered as Markdown (headings, lists, bold, italic, code, links) — in the summary, the notes **and** the chat bubbles.
+- **Search within the full text** — a search bar above the article text highlights every match, shows a running count, and lets you jump between matches with ▲/▼.
+- **Edit the title** — click the small pencil (✎) next to the title, type, then press Enter (or click away) to save; Esc cancels.
+- The full text is cleaned automatically on save: 2+ consecutive blank lines collapse to one, and trailing spaces/newlines are removed.
 
 ### Full-window mode (⛶)
 
@@ -91,10 +97,10 @@ Columns in the "All articles" sheet (and in the per-list sheets):
 | Title (כותרת) | Article title |
 | AI summary (תקציר AI) | `a.summary` (Markdown → rich text) |
 | Notes (הערות) | `a.notes` (HTML → runs with bold/italic/underline/color/size) |
-| APA citation (ציטוט APA) | `buildApaCitation` — title + date + site + URL |
+| APA citation (ציטוט APA) | `buildApaCitation` — APA 7th edition webpage format: `Title. (n.d.). Site Name. Retrieved Month D, YYYY, from URL` (retrieval date uses the saved date; `(n.d.)` when no publication date) |
 | URL (כתובת אתר) | active hyperlink |
 | Saved at (תאריך שמירה) | `a.savedAt` |
-| Chat with AI (שיחה עם AI) | `a.chat` formatted as `Me: …` / `AI: …` (or `אני: …` / `AI: …` in Hebrew) |
+| Chat with AI (שיחה עם AI) | `a.chat` formatted as `Me: …` / `AI: …` (or `אני: …` / `AI: …` in Hebrew), preserving markdown formatting markers (bold, italic, lists) |
 
 The export pipeline:
 - `buildExcelBlob` — builds the workbook with `xlsx-js-style` (styles, text wrapping, column widths, one sheet per list).
@@ -131,6 +137,8 @@ Scripts are loaded in `sidepanel.html` in this order (it matters): `jszip` → `
 
 `extractFromPage` runs inside the tab (via `chrome.scripting.executeScript`): title from `og:title` → `h1` → `document.title`, body from `article` → `main` → `#content` → `body`, stripping `script/style/nav/header/footer/form/...`.
 
+To extract from any site, the extension needs broad host access (`<all_urls>`). When the focused tab is the extension's own side panel, `extractActiveTab` falls back to the most recently used HTTP tab, so saving an article works while the panel is focused.
+
 ### IndexedDB schema (`article-saver-db`, version 1)
 
 - **lists** — `{ id, name, createdAt }` (index `name`)
@@ -142,8 +150,11 @@ Scripts are loaded in `sidepanel.html` in this order (it matters): `jszip` → `
 
 - `loadAll()` — loads lists + articles + settings, picks the active list, persists `activeListId`, applies the interface language, re-renders.
 - `window.I18N` (`i18n.js`) — `load()`/`set()` read and write the `uiLang` setting (default `en`), and `apply()` swaps `data-i18n*` strings and sets `<html lang>`/`dir`.
-- `renderLists()` / `renderArticleRow()` — built in the DOM (no templates).
-- `showDetail(a)` — builds dynamically (per article): title, URL, meta (`meta.dataset.base`), `.detail-mid` with **AI summary** (+ "Regenerate"), **Notes** (`contentEditable` editor with a toolbar wired to `document.execCommand`), **Chat** (`renderChat`/`sendChat`), and the full text (`contentEditable`, saved on `blur`).
+- `renderLists()` / `renderArticleRow()` — built in the DOM (no templates). `renderLists` filters to the active list (or shows all when "All lists"), applies the search query via `articleMatches`, and shows a filtered/total count.
+- `articleMatches(a, query)` — case-insensitive search across `title`, `content`, `summary`, `notes` and `url`.
+- `normalizeBody(s)` — collapses 2+ consecutive blank lines into one and strips trailing whitespace/CRLF, applied on extraction, display, and save of the full text.
+- `showDetail(a)` — builds dynamically (per article): editable title row (pencil ✎), URL, meta (`meta.dataset.base`), `.detail-mid` with **AI summary** (+ "Regenerate"), **Notes** (`contentEditable` editor with a toolbar wired to `document.execCommand`), **Chat** (`renderChat`/`sendChat` rendering messages through `renderMarkdown`), and the full text (`contentEditable`, saved on `blur`) with an in-panel **search + highlight bar** (`applySearch`).
+- `renderMarkdown` / `mdInline` — convert Markdown (headings, bold, italic, lists, code, links) to styled, HTML-escaped output; used by summaries, and reused for chat bubbles.
 - `applyActiveRow()` — highlights `.article-item.active` based on `activeArticleId`.
 - `fitDetailToLists()` — in full mode binds `.detailBody` height to the lists column height; also runs on `resize`.
 - Re-renders on `visibilitychange` (when the panel comes to the foreground).
@@ -176,6 +187,16 @@ By using this extension you acknowledge that:
 - **Content is used for reference only** — summaries and chat answers generated by the AI are informational outputs of a machine-learning model; they may be inaccurate or incomplete and should not be relied upon as authoritative.
 
 ## Changelog
+
+### Recent updates
+- Added full-text search with live highlighting, a match counter, and ▲/▼ navigation in the article view.
+- Added list search (title, content, summary, notes and URL) with a filtered/total count and preserved active-row highlight.
+- The "My lists" view can now be filtered to the active list via an "All lists" option in the "Active list" dropdown.
+- Chat messages now render their Markdown formatting (bold, italic, lists) inline in the chat bubbles; the Excel chat column keeps the formatting markers.
+- APA citation rewritten to APA 7th edition webpage format (`Title. (n.d.). Site Name. Retrieved …, from URL`).
+- Added inline title editing (pencil ✎ next to the title; Enter to save, Esc to cancel).
+- The full article text is cleaned on save/extract/display (2+ blank lines collapse to one, trailing whitespace removed).
+- Fixed "Page is not accessible (no HTTP/HTTPS URL)": extraction now skips the extension's own side-panel tab and falls back to the last-used HTTP tab, with a `tabs` permission and `<all_urls>` host permission.
 
 ### v1.0.0
 - Removed the PDF export feature (folder picker, `pdf-export.js`, jsPDF).

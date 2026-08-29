@@ -12,6 +12,20 @@
 
   const t = (k) => window.I18N.t(k);
 
+  function escapeRegExp(s) {
+    return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  }
+
+  // Collapses 2+ consecutive blank lines into a single blank line and trims
+  // trailing whitespace, so the full article text stays tidy.
+  function normalizeBody(s) {
+    return String(s || "")
+      .replace(/\r\n/g, "\n")
+      .replace(/\n{3,}/g, "\n\n")
+      .replace(/[ \t]+$/gm, "")
+      .replace(/\s+$/, "");
+  }
+
   function articleMatches(a, query) {
     const q = query.toLowerCase().trim();
     if (!q) return true;
@@ -55,7 +69,7 @@
     const st = await getSetting("activeListId");
     const savedId = st ? st.value : null;
     if (savedId && lists.some((l) => l.id === savedId)) activeListId = savedId;
-    else activeListId = lists.length ? lists[0].id : null;
+    else activeListId = null;
     if (activeListId) await setSetting("activeListId", activeListId);
     await loadAiSettings();
     render();
@@ -94,6 +108,11 @@
       return;
     }
     listSelect.disabled = false;
+    const allOpt = document.createElement("option");
+    allOpt.value = "";
+    allOpt.textContent = t("allLists");
+    if (!activeListId) allOpt.selected = true;
+    listSelect.appendChild(allOpt);
     lists.forEach((l) => {
       const opt = document.createElement("option");
       opt.value = l.id;
@@ -117,7 +136,11 @@
       listsContainer.appendChild(div);
       return;
     }
-    lists.forEach((list) => {
+    const visibleLists = activeListId
+      ? lists.filter((l) => l.id === activeListId)
+      : lists;
+
+    visibleLists.forEach((list) => {
       const listArticles = articles
         .filter((a) => a.listId === list.id)
         .filter((a) => articleMatches(a, searchQuery))
@@ -229,7 +252,7 @@
       const article = await addArticle({
         listId: activeListId,
         title: resp.data.title,
-        content: resp.data.content,
+        content: normalizeBody(resp.data.content),
         url: resp.data.url,
       });
       if (aiToggle.checked) {
@@ -429,9 +452,49 @@
     detailBody.innerHTML = "";
     activeArticleId = a.id;
     applyActiveRow();
+    const titleRow = document.createElement("div");
+    titleRow.className = "detail-title-row";
     const title = document.createElement("div");
     title.className = "detail-title";
     title.textContent = a.title || t("noTitle");
+    const titleEditBtn = document.createElement("button");
+    titleEditBtn.type = "button";
+    titleEditBtn.className = "icon-btn title-edit-btn";
+    titleEditBtn.textContent = "✎";
+    titleEditBtn.title = t("editTitleLabel");
+    titleEditBtn.addEventListener("click", () => {
+      const current = titleRow.querySelector(".detail-title");
+      if (!current) return;
+      const input = document.createElement("input");
+      input.className = "input detail-title-input";
+      input.value = a.title || "";
+      current.replaceWith(input);
+      input.focus();
+      input.select();
+
+      const commit = async () => {
+        const val = input.value.trim();
+        const newTitle = val || t("noTitle");
+        const div = document.createElement("div");
+        div.className = "detail-title";
+        if (val !== a.title) {
+          a.title = val;
+          await updateArticle(a.id, { title: newTitle });
+          articles = await getArticles();
+        }
+        div.textContent = newTitle;
+        input.replaceWith(div);
+        applyActiveRow();
+      };
+
+      input.addEventListener("keydown", (e) => {
+        if (e.key === "Enter") { e.preventDefault(); input.blur(); }
+        if (e.key === "Escape") { input.value = a.title || ""; input.blur(); }
+      });
+      input.addEventListener("blur", commit);
+    });
+    titleRow.appendChild(title);
+    titleRow.appendChild(titleEditBtn);
 
     const url = document.createElement("a");
     url.className = "detail-url";
@@ -450,11 +513,12 @@
     content.contentEditable = "true";
     content.spellcheck = false;
     content.dataset.placeholder = t("noBody");
-    content.textContent = a.content || "";
+    content.textContent = normalizeBody(a.content);
     content.title = t("editHint");
 
     const saveContent = async () => {
-      const val = content.innerText != null ? content.innerText.replace(/\s+$/, "") : (content.textContent || "");
+      const raw = content.innerText != null ? content.innerText : (content.textContent || "");
+      const val = normalizeBody(raw);
       if (val === a.content) return;
       try {
         await updateArticle(a.id, { content: val });
@@ -470,7 +534,99 @@
     };
     content.addEventListener("blur", saveContent);
 
-    detailBody.appendChild(title);
+    const contentPanel = document.createElement("div");
+    contentPanel.className = "content-panel";
+
+    const searchRow = document.createElement("div");
+    searchRow.className = "content-search";
+    const searchBox = document.createElement("input");
+    searchBox.className = "input";
+    searchBox.type = "search";
+    searchBox.placeholder = t("contentSearchPlaceholder");
+    const matchInfo = document.createElement("span");
+    matchInfo.className = "match-info";
+    const prevBtn = document.createElement("button");
+    prevBtn.type = "button";
+    prevBtn.className = "icon-btn";
+    prevBtn.textContent = "▲";
+    prevBtn.title = t("prevMatch");
+    const nextBtn = document.createElement("button");
+    nextBtn.type = "button";
+    nextBtn.className = "icon-btn";
+    nextBtn.textContent = "▼";
+    nextBtn.title = t("nextMatch");
+    searchRow.appendChild(searchBox);
+    searchRow.appendChild(prevBtn);
+    searchRow.appendChild(nextBtn);
+    searchRow.appendChild(matchInfo);
+
+    let marks = [];
+    let currentIndex = -1;
+
+    const clearHighlights = () => {
+      marks = [];
+      currentIndex = -1;
+      matchInfo.textContent = "";
+      prevBtn.disabled = true;
+      nextBtn.disabled = true;
+    };
+
+    const updateMatchInfo = () => {
+      if (!marks.length) {
+        matchInfo.textContent = t("noMatches");
+        prevBtn.disabled = true;
+        nextBtn.disabled = true;
+        return;
+      }
+      matchInfo.textContent = (currentIndex + 1) + "/" + marks.length;
+      prevBtn.disabled = false;
+      nextBtn.disabled = false;
+    };
+
+    const gotoMatch = (i) => {
+      if (!marks.length) return;
+      currentIndex = (i + marks.length) % marks.length;
+      marks.forEach((m, idx) => m.classList.toggle("current", idx === currentIndex));
+      marks[currentIndex].scrollIntoView({ behavior: "smooth", block: "center" });
+      updateMatchInfo();
+    };
+
+    const applySearch = () => {
+      const q = searchBox.value;
+      if (!q) {
+        content.contentEditable = "true";
+        content.textContent = normalizeBody(a.content);
+        clearHighlights();
+        return;
+      }
+      content.contentEditable = "false";
+      const escaped = (a.content || "").replace(/[&<>"']/g, (c) => (
+        { "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]
+      ));
+      const re = new RegExp(escapeRegExp(q), "gi");
+      let html = escaped;
+      if (re.source !== "(?:)") {
+        html = escaped.replace(re, (m) => `<mark>${m}</mark>`);
+      }
+      content.innerHTML = html;
+      content.scrollTop = 0;
+      marks = Array.from(content.querySelectorAll("mark"));
+      currentIndex = -1;
+      if (marks.length) gotoMatch(0);
+      else clearHighlights();
+    };
+
+    searchBox.addEventListener("input", applySearch);
+    searchBox.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") e.preventDefault();
+    });
+    prevBtn.addEventListener("click", () => gotoMatch(currentIndex - 1));
+    nextBtn.addEventListener("click", () => gotoMatch(currentIndex + 1));
+
+    contentPanel.appendChild(searchRow);
+    contentPanel.appendChild(content);
+
+    detailBody.appendChild(titleRow);
     detailBody.appendChild(url);
     detailBody.appendChild(meta);
     const detailMid = document.createElement("div");
@@ -676,7 +832,7 @@
       (a.chat || []).forEach((m) => {
         const div = document.createElement("div");
         div.className = "chat-msg " + (m.role === "user" ? "chat-user" : "chat-ai");
-        div.textContent = m.text || "";
+        div.innerHTML = renderMarkdown(m.text);
         chatMessages.appendChild(div);
       });
       chatMessages.scrollTop = chatMessages.scrollHeight;
@@ -734,7 +890,7 @@
     chatBox.appendChild(chatStatus);
     chatBox.appendChild(chatRow);
     detailMid.appendChild(chatBox);
-    detailBody.appendChild(content);
+    detailBody.appendChild(contentPanel);
     detailView.classList.remove("hidden");
     if (isFull) {
       fitDetailToLists();
@@ -782,6 +938,8 @@
   listSelect.addEventListener("change", async () => {
     activeListId = listSelect.value || null;
     if (activeListId) await setSetting("activeListId", activeListId);
+    else await setSetting("activeListId", null);
+    renderLists();
   });
 
   searchInput.addEventListener("input", () => {

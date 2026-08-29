@@ -43,11 +43,17 @@ function buildApaCitation(a) {
   return parts.join(" ");
 }
 
-// Formats the saved AI chat as a readable dialogue ("Me:" / "AI:").
+// Formats the saved AI chat as a readable dialogue ("Me:" / "AI:"), preserving
+// the markdown formatting markers (bold, italic, numbered/bullet lists) exactly
+// as they appear in the chat panel, so nothing is lost when viewed in Excel.
 function chatToText(chat) {
   if (!Array.isArray(chat) || !chat.length) return "";
   return chat
-    .map((m) => (m.role === "user" ? _t("chatPrefixUser") : _t("chatPrefixAi")) + ": " + (m.text || ""))
+    .map((m) => {
+      const prefix = (m.role === "user" ? _t("chatPrefixUser") : _t("chatPrefixAi")) + ": ";
+      const body = String(m.text || "").replace(/\r\n/g, "\n").replace(/[ \t]+$/gm, "");
+      return prefix + body;
+    })
     .join("\n\n");
 }
 
