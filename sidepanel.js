@@ -137,8 +137,11 @@
 
       const count = document.createElement("div");
       count.className = "list-count";
-      const cnt = articles.filter((a) => a.listId === list.id).length;
-      count.textContent = cnt + " " + t("articlesCount");
+      const total = articles.filter((a) => a.listId === list.id).length;
+      const shown = listArticles.length;
+      count.textContent = searchQuery.trim()
+        ? shown + "/" + total + " " + t("articlesCount")
+        : shown + " " + t("articlesCount");
 
       const actions = document.createElement("div");
       actions.className = "list-actions";
@@ -176,6 +179,7 @@
       div.textContent = t("noSearchResults");
       listsContainer.appendChild(div);
     }
+    applyActiveRow();
   }
 
   function renderArticleRow(a) {

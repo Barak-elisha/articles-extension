@@ -154,7 +154,19 @@ async function chatArticle(apiKey, model, title, content, messages, lang) {
 }
 
 async function extractActiveTab(lang) {
-  const [tab] = await chrome.tabs.query({ active: true, currentWindow: true });
+  const extPrefix = chrome.runtime.getURL("");
+  const focused = await chrome.tabs.query({ active: true, currentWindow: true });
+  let tab = focused[0];
+
+  // The side panel itself is an extension:// tab. If the focused tab is our own
+  // side panel, fall back to the most recently used HTTP tab instead.
+  if (!tab || tab.id == null || (tab.url && tab.url.startsWith(extPrefix))) {
+    const all = await chrome.tabs.query({ currentWindow: true });
+    tab = all
+      .filter((t) => t.id != null && t.url && t.url.startsWith("http"))
+      .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
+  }
+
   if (!tab || tab.id == null) throw new Error(lang === "he" ? "לא נמצא Tab פעיל" : "No active tab found");
   if (!/^https?:/.test(tab.url || "")) throw new Error(lang === "he" ? "הדף אינו נגיש (אין כתובת HTTP/HTTPS)" : "Page is not accessible (no HTTP/HTTPS URL)");
 

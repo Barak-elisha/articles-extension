@@ -10,18 +10,37 @@ function _t(k) {
 
 function buildApaCitation(a) {
   const title = (a.title || _t("noTitle")).trim();
-  let site = "";
+
+  // Clean site name (hostname without www.)
+  let siteName = "";
   try {
-    site = new URL(a.url || "").hostname.replace(/^www\./, "");
+    if (a.url) {
+      siteName = new URL(a.url).hostname.replace(/^www\./, "");
+    }
   } catch (e) {}
-  const d = a.savedAt ? new Date(a.savedAt) : null;
-  const dateStr = d
-    ? d.toLocaleDateString("en-US", { year: "numeric", month: "long", day: "numeric" })
-    : "";
-  const hasDate = d ? " (" + dateStr + ")." : "";
-  const sitePart = site ? " " + site + "." : "";
-  const urlPart = a.url ? " " + a.url : "";
-  return (title + hasDate + sitePart + urlPart).trim();
+
+  // Retrieval date (when the article was saved locally), styled per APA 7
+  let retrievalStr = "";
+  if (a.savedAt) {
+    const d = new Date(a.savedAt);
+    const dateFormatted = d.toLocaleDateString("en-US", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
+    retrievalStr = `Retrieved ${dateFormatted}, from `;
+  }
+
+  // APA 7 structure for a webpage without an explicit author:
+  // Title. (n.d.). Site Name. Retrieved Month Day, Year, from URL
+  const parts = [];
+
+  if (title) parts.push(title.endsWith(".") ? title : title + ".");
+  parts.push("(n.d.).");
+  if (siteName) parts.push(siteName + ".");
+  if (a.url) parts.push(`${retrievalStr}${a.url}`);
+
+  return parts.join(" ");
 }
 
 // Formats the saved AI chat as a readable dialogue ("Me:" / "AI:").

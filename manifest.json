@@ -6,6 +6,7 @@
   "permissions": [
     "sidePanel",
     "activeTab",
+    "tabs",
     "scripting",
     "storage"
   ],
