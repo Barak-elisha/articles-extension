@@ -196,6 +196,12 @@ body {
   margin-bottom: 4px;
 }
 .summary-head .summary-label { margin-bottom: 0; }
+
+.chat-disclaimer {
+  font-size: 11px;
+  color: var(--muted);
+  margin: 0 0 6px;
+}
 .summary-actions {
   display: flex;
   align-items: center;

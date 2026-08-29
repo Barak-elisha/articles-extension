@@ -1157,6 +1157,9 @@
     const chatTitle = document.createElement("div");
     chatTitle.className = "summary-label";
     chatTitle.textContent = t("chatTitle");
+    const chatDisclaimer = document.createElement("div");
+    chatDisclaimer.className = "chat-disclaimer";
+    chatDisclaimer.textContent = t("chatDisclaimer");
     const chatMessages = document.createElement("div");
     chatMessages.className = "chat-messages";
     const chatStatus = document.createElement("div");
@@ -1253,6 +1256,7 @@
     chatInput.addEventListener("keydown", (e) => { if (e.key === "Enter") sendChat(); });
 
     chatBox.appendChild(chatTitle);
+    chatBox.appendChild(chatDisclaimer);
     chatBox.appendChild(chatMessages);
     chatBox.appendChild(chatStatus);
     chatBox.appendChild(chatRow);
