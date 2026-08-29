@@ -322,15 +322,16 @@ body {
     gap: 0 16px;
   }
   body.full #detailView > .btn { display: none; }
-  /* The detail body stretches to the height of the articles column, and the
-     summary/notes/chat rows share the extra height so the middle panels grow
-     together with how long the articles list is. */
+  /* The detail body height is bound (in JS) to the height of the articles
+     column, so the page ends where the lists end and every other panel
+     scrolls internally when its content is longer. */
   body.full #detailBody {
     grid-column: 1 / -1;
     display: grid;
     grid-template-columns: 1fr 1fr;
     grid-template-rows: auto auto auto minmax(min-content, 1fr) minmax(min-content, 1fr) minmax(min-content, 1fr);
     gap: 12px 16px;
+    overflow: hidden;
   }
   body.full #detailBody .detail-title { grid-column: 1 / -1; }
   body.full #detailBody .detail-url { grid-column: 1 / -1; }

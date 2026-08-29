@@ -392,6 +392,20 @@
     detailView.style.gridTemplateColumns = midFr + "fr " + textFr + "fr";
   }
 
+  // Binds the detail column height to the articles column, so the page ends
+  // where the lists end and every other panel scrolls internally instead.
+  function fitDetailToLists() {
+    if (!isFull) return;
+    mainView.style.alignSelf = "start";
+    detailBody.style.alignSelf = "start";
+    detailBody.style.height = "";
+    const natural = detailBody.getBoundingClientRect().height;
+    const mainH = mainView.getBoundingClientRect().height;
+    detailBody.style.height = Math.max(240, mainH, natural) + "px";
+    mainView.style.alignSelf = "";
+    detailBody.style.alignSelf = "";
+  }
+
   function mdInline(s) {
     s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
     s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
@@ -736,7 +750,10 @@
     detailBody.appendChild(chatBox);
     detailBody.appendChild(content);
     detailView.classList.remove("hidden");
-    if (isFull) sizeFullPanels(a);
+    if (isFull) {
+      sizeFullPanels(a);
+      fitDetailToLists();
+    }
     if (!isFull) {
       requestAnimationFrame(() => {
         const box = detailView.querySelector(".detail-summary");
@@ -746,6 +763,12 @@
   }
 
   /* ---------- Events ---------- */
+
+  if (isFull) {
+    window.addEventListener("resize", () => {
+      if (!detailView.classList.contains("hidden")) fitDetailToLists();
+    });
+  }
 
   saveBtn.addEventListener("click", saveCurrentArticle);
   addListBtn.addEventListener("click", onAddList);
