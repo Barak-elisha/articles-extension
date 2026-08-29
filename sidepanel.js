@@ -214,6 +214,11 @@
       await maybeSavePdf(article);
       articles = await getArticles();
       render();
+      if (article.summary) {
+        showDetail(article);
+        const box = detailView.querySelector(".detail-summary");
+        if (box) box.scrollIntoView({ behavior: "smooth", block: "center" });
+      }
       if (saveStatus.className !== "status error") {
         saveStatus.className = "status success";
         saveStatus.textContent = "המאמר נשמר בהצלחה ✓";
@@ -350,6 +355,59 @@
 
   /* ---------- Detail view ---------- */
 
+  function mdInline(s) {
+    s = s.replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>");
+    s = s.replace(/(^|[^*])\*([^*\n]+)\*/g, "$1<em>$2</em>");
+    s = s.replace(/`([^`]+)`/g, '<code style="background:#dfe6f5;padding:1px 4px;border-radius:4px;font-size:12px;">$1</code>');
+    s = s.replace(/\[([^\]]+)\]\((https?:\/\/[^)\s]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    return s;
+  }
+
+  function renderMarkdown(text) {
+    const esc = String(text || "")
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+    const lines = esc.split("\n");
+    let html = "";
+    let listTag = null;
+    const closeList = () => {
+      if (listTag) { html += "</" + listTag + ">"; listTag = null; }
+    };
+    for (const raw of lines) {
+      const line = raw.trim();
+      if (!line) { closeList(); continue; }
+      if (/^#{1,4}\s/.test(line)) {
+        closeList();
+        const level = line.match(/^#+/)[0].length;
+        const text = line.replace(/^#+\s*/, "");
+        const size = level === 1 ? 16 : level === 2 ? 15 : 13.5;
+        html += '<div style="font-weight:700;font-size:' + size + 'px;margin:8px 0 4px;">' + mdInline(text) + "</div>";
+        continue;
+      }
+      if (/^---+$/.test(line)) {
+        closeList();
+        html += '<hr style="border:none;border-top:1px solid #c9d8f6;margin:8px 0;">';
+        continue;
+      }
+      if (/^([*-])\s+/.test(line)) {
+        if (listTag !== "ul") { closeList(); html += '<ul style="margin:4px 0 8px;padding-right:18px;">'; listTag = "ul"; }
+        html += "<li style=\"margin:2px 0;\">" + mdInline(line.replace(/^[*-]\s+/, "")) + "</li>";
+        continue;
+      }
+      if (/^\d+[.)]\s+/.test(line)) {
+        if (listTag !== "ol") { closeList(); html += '<ol style="margin:4px 0 8px;padding-right:18px;">'; listTag = "ol"; }
+        html += "<li style=\"margin:2px 0;\">" + mdInline(line.replace(/^\d+[.)]\s+/, "")) + "</li>";
+        continue;
+      }
+      closeList();
+      html += '<p style="margin:4px 0;">' + mdInline(line) + "</p>";
+    }
+    closeList();
+    return html;
+  }
+
   function showDetail(a) {
     detailBody.innerHTML = "";
     const title = document.createElement("div");
@@ -380,12 +438,42 @@
       sTitle.className = "summary-label";
       sTitle.textContent = "תקציר AI";
       const sText = document.createElement("div");
-      sText.textContent = a.summary;
+      sText.className = "summary-text";
+      sText.innerHTML = renderMarkdown(a.summary);
       summaryBox.appendChild(sTitle);
       summaryBox.appendChild(sText);
       detailBody.appendChild(summaryBox);
     }
     detailBody.appendChild(content);
+
+    const notesBox = document.createElement("div");
+    notesBox.className = "notes-box";
+    const nTitle = document.createElement("div");
+    nTitle.className = "summary-label";
+    nTitle.textContent = "הערות שלי";
+    const notes = document.createElement("textarea");
+    notes.className = "input notes-input";
+    notes.placeholder = "הוסף הערות אישיות...";
+    notes.value = a.notes || "";
+    const noteStatus = document.createElement("div");
+    noteStatus.className = "status muted";
+    const saveNotes = async () => {
+      try {
+        await updateArticle(a.id, { notes: notes.value });
+        articles = await getArticles();
+        noteStatus.className = "status success";
+        noteStatus.textContent = "ההערות נשמרו ✓";
+        setTimeout(() => { noteStatus.textContent = ""; }, 2500);
+      } catch (e) {
+        noteStatus.className = "status error";
+        noteStatus.textContent = "שמירה נכשלה: " + e.message;
+      }
+    };
+    notes.addEventListener("change", saveNotes);
+    notesBox.appendChild(nTitle);
+    notesBox.appendChild(notes);
+    notesBox.appendChild(noteStatus);
+    detailBody.appendChild(notesBox);
     detailView.classList.remove("hidden");
   }
 

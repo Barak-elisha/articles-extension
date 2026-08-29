@@ -26,6 +26,7 @@ function buildExcelBlob(articles, lists) {
       ["רשימה"]: listName[a.listId] || "ללא רשימה",
       ["כותרת"]: a.title || "",
       ["תקציר AI"]: a.summary || "",
+      ["הערות"]: a.notes || "",
       ["ציטוט APA"]: buildApaCitation(a),
       ["כתובת אתר"]: a.url || "",
       ["תאריך שמירה"]: a.savedAt ? new Date(a.savedAt).toLocaleString() : "",

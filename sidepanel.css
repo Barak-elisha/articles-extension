@@ -150,6 +150,14 @@ body {
   font-size: 13px;
 }
 
+.notes-box { margin-top: 10px; }
+.notes-input {
+  min-height: 80px;
+  resize: vertical;
+  margin-bottom: 0;
+  white-space: pre-wrap;
+}
+
 /* Lists */
 .lists { margin-top: 8px; }
 
