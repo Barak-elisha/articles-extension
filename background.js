@@ -13,6 +13,9 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
+chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
+  .catch((err) => console.error("sidePanel setPanelBehavior:", err));
+
 async function generateSummary(apiKey, content, title, model) {
   if (!apiKey) throw new Error("לא הוזן API key");
   const m = model || "gemini-2.0-flash";
