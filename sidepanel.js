@@ -8,14 +8,26 @@
   let activeArticleId = null;
   let aiApiKey = "";
   let aiModel = "gemini-2.0-flash";
+  let searchQuery = "";
 
   const t = (k) => window.I18N.t(k);
+
+  function articleMatches(a, query) {
+    const q = query.toLowerCase().trim();
+    if (!q) return true;
+    const haystack = [a.title, a.content, a.summary, a.notes, a.url]
+      .filter((x) => x != null)
+      .join("\n")
+      .toLowerCase();
+    return haystack.indexOf(q) !== -1;
+  }
 
   const $ = (sel) => document.querySelector(sel);
   const listSelect = $("#listSelect");
   const saveBtn = $("#saveBtn");
   const saveStatus = $("#saveStatus");
   const listsContainer = $("#listsContainer");
+  const searchInput = $("#searchInput");
   const newListName = $("#newListName");
   const addListBtn = $("#addListBtn");
   const exportBtn = $("#exportBtn");
@@ -106,6 +118,13 @@
       return;
     }
     lists.forEach((list) => {
+      const listArticles = articles
+        .filter((a) => a.listId === list.id)
+        .filter((a) => articleMatches(a, searchQuery))
+        .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
+
+      if (searchQuery.trim() && !listArticles.length) return;
+
       const item = document.createElement("div");
       item.className = "list-item";
 
@@ -144,15 +163,19 @@
       head.appendChild(actions);
       item.appendChild(head);
 
-      const listArticles = articles
-        .filter((a) => a.listId === list.id)
-        .sort((a, b) => (b.savedAt || 0) - (a.savedAt || 0));
       listArticles.forEach((a) => {
         item.appendChild(renderArticleRow(a));
       });
 
       listsContainer.appendChild(item);
     });
+
+    if (searchQuery.trim() && !listsContainer.children.length) {
+      const div = document.createElement("div");
+      div.className = "status muted";
+      div.textContent = t("noSearchResults");
+      listsContainer.appendChild(div);
+    }
   }
 
   function renderArticleRow(a) {
@@ -460,8 +483,16 @@
     regenBtn.type = "button";
     regenBtn.className = "btn btn-secondary btn-small";
     regenBtn.textContent = t("regenerate");
+    const chatBtn = document.createElement("button");
+    chatBtn.type = "button";
+    chatBtn.className = "btn btn-secondary btn-small";
+    chatBtn.textContent = t("chatButton");
+    const summaryActions = document.createElement("div");
+    summaryActions.className = "summary-actions";
+    summaryActions.appendChild(chatBtn);
+    summaryActions.appendChild(regenBtn);
     headRow.appendChild(sTitle);
-    headRow.appendChild(regenBtn);
+    headRow.appendChild(summaryActions);
     summaryBox.appendChild(headRow);
     const sText = document.createElement("div");
     sText.className = "summary-text";
@@ -610,6 +641,11 @@
 
     const chatBox = document.createElement("div");
     chatBox.className = "chat-box";
+    chatBtn.addEventListener("click", () => {
+      chatBox.scrollIntoView({ behavior: "smooth", block: "start" });
+      chatInputRef && chatInputRef.focus();
+    });
+    let chatInputRef = null;
     const chatTitle = document.createElement("div");
     chatTitle.className = "summary-label";
     chatTitle.textContent = t("chatTitle");
@@ -621,6 +657,7 @@
     chatInput.className = "input";
     chatInput.type = "text";
     chatInput.placeholder = t("chatPlaceholder");
+    chatInputRef = chatInput;
     const chatSend = document.createElement("button");
     chatSend.type = "button";
     chatSend.className = "btn btn-primary btn-small";
@@ -741,6 +778,11 @@
   listSelect.addEventListener("change", async () => {
     activeListId = listSelect.value || null;
     if (activeListId) await setSetting("activeListId", activeListId);
+  });
+
+  searchInput.addEventListener("input", () => {
+    searchQuery = searchInput.value;
+    renderLists();
   });
 
   langSelect.addEventListener("change", async () => {

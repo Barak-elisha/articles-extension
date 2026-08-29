@@ -143,6 +143,13 @@ body {
 .status.error { color: var(--danger); }
 .status.muted { color: var(--muted); font-weight: 400; }
 
+.footer {
+  margin-top: 16px;
+  text-align: center;
+  font-size: 12px;
+  color: var(--muted);
+}
+
 .checkbox {
   display: flex;
   align-items: center;
@@ -177,6 +184,12 @@ body {
   margin-bottom: 4px;
 }
 .summary-head .summary-label { margin-bottom: 0; }
+.summary-actions {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
 
 .notes-box { margin-top: 10px; }
 .notes-toolbar {
@@ -346,7 +359,7 @@ body {
   }
   body.full #detailBody .detail-mid > * { flex: 0 1 auto; min-height: 0; margin-top: 0; margin-bottom: 0; }
   body.full #detailBody .detail-mid .chat-box { flex: 1 1 auto; }
-  body.full #detailBody .detail-summary { max-height: none; }
+  body.full #detailBody .detail-summary { max-height: 42%; overflow: auto; min-height: 0; }
   body.full #detailBody .notes-box { display: flex; flex-direction: column; overflow: hidden; }
   body.full #detailBody .notes-input { flex: 1; min-height: 140px; }
   body.full #detailBody .chat-box { display: flex; flex-direction: column; overflow: hidden; }
