@@ -17,7 +17,7 @@ async function generateSummary(apiKey, content, title, model) {
   if (!apiKey) throw new Error("לא הוזן API key");
   const m = model || "gemini-2.0-flash";
   const prompt =
-    "צור תקציר ממוקד ואובייקטיבי של המאמר הבא בעברית, המורכב מ-3-5 משפטים.\n\n" +
+    "כתוב תקציר מקיף ואובייקטיבי של המאמר הבא בעברית, המסכם את עיקרי הדברים בצורה מפורטת.\n\n" +
     (title ? "כותרת המאמר: " + title + "\n\n" : "") +
     "גוף המאמר:\n" + content.slice(0, 12000);
 
@@ -33,7 +33,7 @@ async function generateSummary(apiKey, content, title, model) {
       },
       body: JSON.stringify({
         contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 300 },
+        generationConfig: { maxOutputTokens: 2048 },
       }),
     }
   );
