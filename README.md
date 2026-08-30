@@ -29,7 +29,7 @@ A Chrome extension (Manifest V3, `version 1.1.0`) for saving articles to lists, 
 - **Interface language** — switch between English and Hebrew in Settings (English is the default; the choice is persisted and also drives the AI output language and the Excel headers).
 
 <p align="center">
-  <img src="Screenshots/Screenshot%202026-08-29%20at%2023.45.54.png" alt="Side panel in English: article list and the Export to Excel button" width="340" />
+  <img src="Screenshots/Screenshot%202026-08-30%20at%2023.29.17.png" alt="Side panel in English: article list and the Export to Excel button" width="340" />
   <br />
   <em>The side panel in English, with the article list and the Export to Excel button</em>
 </p>
