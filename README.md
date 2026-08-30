@@ -162,6 +162,8 @@ The export pipeline:
 | `lib/THIRD_PARTY_LICENSES.md` | Preserved license notices for the bundled libraries |
 | `icons/` | Extension icons (16/32/48/128) |
 | `LICENSE` | The project's MIT license |
+| `SECURITY.md` | How to report security vulnerabilities privately |
+| `CONTRIBUTING.md` | Contribution guidelines (local-first, no unneeded deps) |
 
 Scripts are loaded in `sidepanel.html` in this order (it matters): `jszip` → `cpexcel` → `xlsx-js-style` → `storage` → `i18n` → `sanitize` → `excel-export` → `sidepanel`.
 
@@ -213,6 +215,14 @@ To extract from any site, the extension needs broad host access (`<all_urls>`). 
 - No build step — load the folder as "load unpacked" and refresh.
 - Libraries live locally under `lib/` (no CDN; everything stays fully local).
 - Manual Excel checks are done by opening the file in LibreOffice/Excel; the internal validation pipeline in `excel-export.js` guarantees a well-formed file even with fragile XML tweaks.
+
+## Security Policy
+
+If you discover a security vulnerability or sensitive data issue, please **do not open a public issue**. Contact the maintainer directly via GitHub instead, so the problem can be handled privately before it is fixed and disclosed. See the full [Security Policy](SECURITY.md) for details.
+
+## Contributing
+
+Contributions are welcome. Before opening a pull request, please review the [Contributing guidelines](CONTRIBUTING.md) — including keeping the project **local-first** (no new server dependencies) and avoiding unnecessary third-party libraries.
 
 ## License
 
