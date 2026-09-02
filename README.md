@@ -2,8 +2,20 @@
 
 A Chrome extension (Manifest V3, `version 1.1.0`) for saving articles to lists, generating AI summaries, chatting with a Gemini model about each article, taking rich notes, and exporting everything to Excel.
 
-- **Full privacy** — all data is stored locally in the browser's IndexedDB; no server involved.
+- **Local library** — articles, notes, chats and settings are stored in browser IndexedDB. Optional AI sends article text and chat to Google using your API key; see [Privacy](PRIVACY.md).
 - Official repository: `https://github.com/Barak-elisha/articles-extension.git` (branch `main`).
+
+## Extension description and defaults
+
+**Name:** Article Saver
+
+**Description:** Save articles to lists, take notes, generate AI summaries, chat about your reading, and export to Excel.
+
+The extension name, Chrome toolbar title and description are in English. On a fresh installation, the interface starts in English with a left-to-right layout, English AI responses and English Excel headers. Dates follow the selected interface language. Automatic AI summaries are off by default; saving articles and taking notes do not require an API key.
+
+Hebrew is available as an optional language in Settings. An existing saved language choice is preserved. Article text remains in its original language.
+
+The current release exports Excel workbooks; PDF export is not implemented.
 
 <p align="center">
   <img src="Screenshots/Screenshot%202026-08-30%20at%200.00.39.png" alt="Full-window view: lists on the left, AI summary + notes + chat in the middle, and the full article text with highlights on the right" width="720" />
@@ -15,7 +27,7 @@ A Chrome extension (Manifest V3, `version 1.1.0`) for saving articles to lists, 
 
 - **Side panel** opens on the right, and opens automatically when the extension icon is clicked.
 - **List management** — create, rename and delete lists (deleting a list also deletes its articles).
-- **Filter by active list** — select a list in the "Active list" dropdown (or "All lists") to show only that list's articles and hide the rest.
+- **Filter by active list** — select a list in the "Save to list" dropdown (or "All lists") to show only that list's articles and hide the rest.
 - **Search your articles** — a search box filters articles by title, summary, notes, URL **and full article content**, with a live result count and the last-opened article kept highlighted.
 - **Save article** from the active tab — extracts title, article body and URL, optionally with an automatic AI summary.
 - **Chat with AI about each article** — a built-in chat grounded in the article's body but also able to answer broader questions about the article (its topic, author, journal, concepts) with general knowledge. Chat messages render formatting (bold, italic, lists) inline, are persisted, and are exported to Excel.
@@ -25,7 +37,7 @@ A Chrome extension (Manifest V3, `version 1.1.0`) for saving articles to lists, 
 - **Edit the article title** inline with a small pencil next to it.
 - **Full-window mode** — three equal columns (a third each) on a full screen: lists | summary+notes+chat | full text.
 - **Excel export** — an "All articles" sheet plus one sheet per list, with rich text, clickable links, an APA citation and an AI-chat column.
-- **AI settings** — API key from Google AI Studio; on saving the key the extension fetches all available Gemini models from Google's API and lets you pick one from a dropdown (default: `gemini-2.0-flash`).
+- **AI settings** — API key from Google AI Studio; when you click Refresh models the extension fetches compatible Gemini models from Google's API and lets you pick one from a dropdown (default: `gemini-2.5-flash`).
 - **Interface language** — switch between English and Hebrew in Settings (English is the default; the choice is persisted and also drives the AI output language and the Excel headers).
 
 <p align="center">
@@ -36,8 +48,8 @@ A Chrome extension (Manifest V3, `version 1.1.0`) for saving articles to lists, 
 
 ## Prerequisites & Compatibility
 
-- **Browser:** a Chromium-based browser (Chrome, Edge, Brave, Arc) with Manifest V3 support.
-- **API account:** a Google account with access to [Google AI Studio](https://aistudio.google.com/) (free or paid tier API key).
+- **Browser:** Google Chrome 121+ (required for side panel support and `tabs.Tab.lastAccessed` used by full-window mode). Other Chromium browsers need separate compatibility checks.
+- **Optional AI account:** a Google account with access to [Google AI Studio](https://aistudio.google.com/) (free or paid tier API key).
 
 ## Installation
 
@@ -48,27 +60,27 @@ A Chrome extension (Manifest V3, `version 1.1.0`) for saving articles to lists, 
 
 ## Usage
 
-1. **Create a list** in the "Manage lists" section.
+1. **Create a list** in the "Create a list" section.
 2. Choose an active list and click **"Save current article"**.
-3. (Optional) In Settings → "AI settings", paste an **API key** from Google AI Studio and click **Save key**. The extension then queries Google's `models` endpoint with your key to fill the **Model** dropdown with every available Gemini model — pick one and click **Save key** again (or use **Refresh models** to reload the list).
-4. (Optional) In Settings → "Interface language", choose **English** or **עברית** (default: English).
-5. Click **"Export to Excel"** to save the workbook (`articles.xlsx` in English, `מאמרים.xlsx` in Hebrew).
+3. (Optional) In Settings → "AI settings", paste an **API key** from Google AI Studio and click **Save key**. Click **Refresh models** to query Google for compatible generation models; choose a model and save. Saving a key or opening the panel does not make a network request.
+4. (Optional) In Settings → "Interface language", choose **English** or **Hebrew** (default: English).
+5. Click **"Export to Excel"** to save the workbook (`articles.xlsx` by default; the filename is localized when Hebrew is selected).
 
 ### Viewing and handling an article
 
 - Clicking an article title opens its details: **AI summary** (+ "Regenerate" button), **My notes**, **Chat with AI**, and the full text.
-- Article rows show **Open** (open the source in a new tab) and **✕** (delete).
+- Article rows include **Open source** and **Delete article** icon buttons.
 - The active article is highlighted in blue.
-- Summaries and chat messages are rendered as Markdown (headings, lists, bold, italic, code, links) — in the summary, the notes **and** the chat bubbles.
+- Summaries and chat messages render Markdown (headings, lists, bold, italic, code and links). Notes use the rich-text editor and its formatting toolbar.
 - **Search within the full text** — a search bar above the article text highlights every match, shows a running count, and lets you jump between matches with ▲/▼.
 - **Edit the title** — click the small pencil (✎) next to the title, type, then press Enter (or click away) to save; Esc cancels.
 - The full text is cleaned automatically on save: 2+ consecutive blank lines collapse to one, and trailing spaces/newlines are removed.
 - **Highlight important text** — select text and pick a color from the marker bar above the text (preset palette or custom color); highlights are saved with the article.
 - **Auto direction** — Hebrew/Arabic articles align right, English/Latin articles align left, automatically.
 
-### Full-window mode (⛶)
+### Full-window mode
 
-- The **⛶** button opens `sidepanel.html?mode=full` in a new tab of the same window.
+- The **Open in full size** button opens `sidepanel.html?mode=full` in a new tab of the same window.
 - Three equal-width columns: **My lists** | **AI summary + notes + chat** | **Full text**.
 - The page height follows the lists column (the page ends where the lists end); panels size to their content and scroll internally only when space is tight. The chat box stretches to the end of the page.
 
@@ -81,9 +93,9 @@ The extension talks to Google Gemini (v1beta `generateContent`) in two modes:
 | Summary | `GENERATE_SUMMARY` | A comprehensive summary of the article body in the interface language (up to 12,000 characters sent, up to 2,048 output tokens). |
 | Chat | `CHAT_ARTICLE` | Q&A about the article in the interface language; `systemInstruction` anchors factual answers to the article's content (noting when an answer goes beyond it) while allowing relevant general knowledge, and the last 20 messages are sent. |
 
-An API key is required. The "Add AI summary" checkbox controls whether every save generates a summary automatically.
+An API key is required only for AI. The "Include an AI summary" checkbox is off by default and its choice is persisted. Enabling it sends saved article content to Google on subsequent saves. Regenerate and chat are explicit AI actions. Requests time out after 60 seconds.
 
-**Model dropdown** — when you save an API key (or click **Refresh models**), the panel calls Google's Gemini `models` endpoint with your key and fills the **Model** dropdown with every available Gemini model (names are filtered to `gemini-*` and sorted). Your previously chosen model stays selected if it is still available; otherwise `gemini-2.0-flash` is chosen by default. The chosen model is stored as `geminiModel`.
+**Model dropdown** — **Refresh models** explicitly calls Google's models endpoint using the key in a request header, follows pagination, and lists unique `gemini-*` models supporting `generateContent`. The default is `gemini-2.5-flash`; previously saved retired Gemini 2.0 selections resolve to that default. The selected model is stored as `geminiModel`.
 
 <p align="center">
   <img src="Screenshots/Screenshot%202026-08-29%20at%2023.48.11.png" alt="Chat answering that the text is a review article, grounded in the article content" width="340" />
@@ -93,19 +105,23 @@ An API key is required. The "Add AI summary" checkbox controls whether every sav
 
 ### Interface language (i18n)
 
-The interface fully supports Hebrew with RTL layout — including the article text, AI output and Excel headers.
+English is the default for every new installation and whenever a stored language setting is missing or unsupported. The extension does not automatically switch to the browser or operating-system language.
+
+To change the language, open **Settings → Interface language** and select **English** or **Hebrew**. This preference is saved and controls interface labels, dates, AI response language and Excel headers. Hebrew enables right-to-left layout. Switching the interface language does not translate previously saved articles, notes or AI responses.
+
+After updating an unpacked extension, click **Reload** on its card in `chrome://extensions` and reopen the panel to refresh its name, description and interface. If an existing installation opens in Hebrew, select English in Settings; reloading preserves saved preferences.
 
 <p align="center">
   <img src="Screenshots/Screenshot%202026-08-29%20at%2023.41.25.png" alt="The extension interface in Hebrew with RTL layout" width="340" />
   <br />
-  <em>Hebrew (עברית) interface with full RTL alignment</em>
+  <em>Optional Hebrew interface with full RTL alignment</em>
 </p>
 
 ### Security & API key
 
 - **Bring your own key** — the extension does not ship or bundle any API key. You must provide your own key from [Google AI Studio](https://aistudio.google.com/), under Settings → "AI settings".
 - **Stored locally only** — the key is saved exclusively in the browser's own storage (IndexedDB via the `settings` store), never transmitted to or stored on any server owned by this extension, and never written to Excel or the article records.
-- **Sent only to Google** — the key and your article content are sent directly from your browser to Google's Gemini API only when you generate a summary or chat; nothing is routed through a third-party backend.
+- **Sent only to Google** — the key and your article content are sent directly from your browser to Google's Gemini API only when you generate a summary or chat (model refresh sends the key without article content); nothing is routed through a third-party backend.
 
 > Treat your key like a password: anyone who can access your browser's profile can read saved keys. If a key is ever leaked, revoke and regenerate it in Google AI Studio.
 
@@ -115,7 +131,7 @@ The extension renders and stores content that originates outside your control �
 
 - **Article body & title** — the title is always rendered with `textContent`. The full-text editor renders through `sanitizeHtml` and is always **sanitized on save** (`sanitizeHtml(content.innerHTML)`), so HTML from the source page or pasted in is neutralized before it is stored; color highlights survive because `background-color` (a non-URL, text-affecting property) is allowlisted. On extraction the body is stored as plain text.
 - **AI summaries** are rendered through `renderMarkdown`, which HTML-escapes the entire input (`&<>"`) before building any markup.
-- **Notes** (the only HTML the user can author) are passed through a self-contained sanitizer — `sanitizeHtml` in `sanitize.js` — before rendering in the editor and before the Excel rich-text export. It is an allowlist (no external library, works fully offline): it drops `<script>`, `<style>`, `<iframe>`, `<object>`, `<embed>`, `<form>`, interactive elements and every `on*` handler, strips `javascript:`/`vbscript:`/`data:`/`file:` URLs and `expression()`/`url()` CSS, while keeping the safe formatting tags (`b`, `i`, `u`, `font`, lists, …). A malicious `<img onerror=…>` or `<a href="javascript:…">` inside a note is neutralized before it ever reaches the live DOM.
+- **Notes** (the only HTML the user can author) are passed through a self-contained sanitizer — `sanitizeHtml` in `sanitize.js` — before rendering, on paste, before saving, and before the Excel rich-text export. It is an allowlist (no external library, works fully offline): it drops `<script>`, `<style>`, `<iframe>`, `<object>`, `<embed>`, `<form>`, interactive elements and every `on*` handler, strips `javascript:`/`vbscript:`/`data:`/`file:` URLs and `expression()`/`url()` CSS, while keeping the safe formatting tags (`b`, `i`, `u`, `font`, lists, …). A malicious `<img onerror=…>` or `<a href="javascript:…">` inside a note is neutralized before it ever reaches the live DOM.
 - **Anchor links** produced by the sanitizer always get `rel="noopener noreferrer"`.
 
 #### Prompt-injection hardening
@@ -131,14 +147,14 @@ Columns in the "All articles" sheet (and in the per-list sheets):
 
 | Column | Source |
 | --- | --- |
-| List (רשימה) | List name |
-| Title (כותרת) | Article title |
-| AI summary (תקציר AI) | `a.summary` (Markdown → rich text) |
-| Notes (הערות) | `a.notes` (HTML → runs with bold/italic/underline/color/size) |
-| APA citation (ציטוט APA) | `buildApaCitation` — APA 7th edition webpage format: `Title. (n.d.). Site Name. Retrieved Month D, YYYY, from URL` (retrieval date uses the saved date; `(n.d.)` when no publication date) |
-| URL (כתובת אתר) | active hyperlink |
-| Saved at (תאריך שמירה) | `a.savedAt` |
-| Chat with AI (שיחה עם AI) | `a.chat` formatted as `Me: …` / `AI: …` (or `אני: …` / `AI: …` in Hebrew), preserving markdown formatting markers (bold, italic, lists) |
+| List | List name |
+| Title | Article title |
+| AI summary | `a.summary` (Markdown → rich text) |
+| Notes | `a.notes` (HTML → runs with bold/italic/underline/color/size) |
+| APA citation | `buildApaCitation` — APA 7th edition webpage format: `Title. (n.d.). Site Name. Retrieved Month D, YYYY, from URL` (retrieval date uses the saved date; `(n.d.)` when no publication date) |
+| URL | active hyperlink |
+| Saved at | `a.savedAt` |
+| Chat with AI | `a.chat` formatted as `Me: …` / `AI: …` (with localized speaker labels when Hebrew is selected), preserving markdown formatting markers (bold, italic, lists) |
 
 The export pipeline:
 - `buildExcelBlob` — builds the workbook with `xlsx-js-style` (styles, text wrapping, column widths, one sheet per list).
@@ -171,24 +187,23 @@ Scripts are loaded in `sidepanel.html` in this order (it matters): `jszip` → `
 
 | type | input | output |
 | --- | --- | --- |
-| `FETCH_MODELS` | `{ apiKey }` | `{ ok, models: string[] }` |
 | `EXTRACT_ARTICLE` | `{ lang }` | `{ ok, data: { title, content, url } }` |
 | `GENERATE_SUMMARY` | `{ apiKey, content, title, model, lang }` | `{ ok, summary }` |
 | `CHAT_ARTICLE` | `{ apiKey, model, title, content, messages, lang }` | `{ ok, text }` |
 
 `extractFromPage` runs inside the tab (via `chrome.scripting.executeScript`): title from `og:title` → `h1` → `document.title`, body from `article` → `main` → `#content` → `body`, stripping `script/style/nav/header/footer/form/...`.
 
-To extract from any site, the extension needs broad host access (`<all_urls>`). When the focused tab is the extension's own side panel, `extractActiveTab` falls back to the most recently used HTTP tab, so saving an article works while the panel is focused.
+The extension requests HTTP/HTTPS host access for user-triggered article extraction. `tabs` supports selecting the last web tab while full-window mode is focused. It does not automatically scan browsing history; `storage` permission is unnecessary because data uses IndexedDB. When the focused tab is the extension's own side panel, `extractActiveTab` falls back to the most recently used HTTP tab, so saving an article works while the panel is focused.
 
 ### IndexedDB schema (`article-saver-db`, version 1)
 
 - **lists** — `{ id, name, createdAt }` (index `name`)
 - **articles** — `{ id, listId, title, content, url, savedAt, summary?, notes?, chat? }` (indexes `listId`, `savedAt`)
-  - `content` — sanitized HTML string (preserves text highlights and line formatting)
+  - `content` — extracted plain text or sanitized edited HTML; `contentFormat` distinguishes `text` from `html`. Legacy records are sanitized on display.
   - `summary` — Markdown string
   - `notes` — HTML string
   - `chat` — array of `[{ role: "user"|"assistant", text }]`
-- **settings** — `{ key, value }`; keys: `activeListId`, `geminiApiKey`, `geminiModel`, `uiLang`
+- **settings** — `{ key, value }`; keys: `activeListId`, `geminiApiKey`, `geminiModel`, `autoSummary`, `uiLang`
 
 ### Panel logic (JS — `sidepanel.js`, IIFE)
 
@@ -212,9 +227,17 @@ To extract from any site, the extension needs broad host access (`<all_urls>`). 
 
 ## Development
 
+See [regression test instructions](tests/README.md) and [pre-store review](PRE_RELEASE_REVIEW.md).
+
 - No build step — load the folder as "load unpacked" and refresh.
 - Libraries live locally under `lib/` (no CDN; everything stays fully local).
 - Manual Excel checks are done by opening the file in LibreOffice/Excel; the internal validation pipeline in `excel-export.js` guarantees a well-formed file even with fragile XML tweaks.
+
+## Chrome Web Store package
+
+Run `python3 scripts/package-extension.py` from the repository root to create `dist/article-saver-1.1.0.zip` and its SHA-256 checksum. The archive contains the manifest at its root, runtime code, local libraries, icons and required license notices. Tests, screenshots, development scripts, Git metadata and machine-specific files are excluded. Generated archives are ignored by Git.
+
+Upload this ZIP to the existing extension's **Package** page in the Chrome Developer Dashboard. Uploading a draft is separate from submitting it for review. Check [the pre-release review](PRE_RELEASE_REVIEW.md) and complete the remaining verification and listing requirements before submission.
 
 ## Security Policy
 
@@ -256,6 +279,9 @@ By using this extension you acknowledge that:
 ## Changelog
 
 ### v1.1.0
+- Refreshed interface and icons, with English metadata and defaults.
+- Hardened article/notes rendering and fixed Excel names, duplicate saves and list deletion.
+- Optional AI disclosure, updated Gemini default and bounded network requests.
 - Dynamic Gemini model selection dropdown via Google AI Studio API.
 - Full-text interactive highlight marker toolbar with persistent sanitized styling.
 - In-article text search with match counter and navigation controls (▲/▼).

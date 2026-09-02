@@ -1,25 +1,24 @@
 {
   "manifest_version": 3,
-  "name": "שומר מאמרים (Article Saver)",
-  "version": "1.0.0",
-  "description": "שמור מאמרים לרשימות, צור קבצי PDF לתיקייה וייצא ל-Excel.",
+  "name": "Article Saver",
+  "version": "1.1.0",
+  "description": "Save articles to lists, take notes, generate AI summaries, chat about your reading, and export to Excel.",
   "permissions": [
     "sidePanel",
     "activeTab",
     "tabs",
-    "scripting",
-    "storage"
+    "scripting"
   ],
   "host_permissions": [
-    "https://generativelanguage.googleapis.com/*",
-    "<all_urls>"
+    "http://*/*",
+    "https://*/*"
   ],
   "background": {
     "service_worker": "background.js",
     "type": "module"
   },
   "action": {
-    "default_title": "שומר מאמרים",
+    "default_title": "Article Saver",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",
@@ -35,5 +34,9 @@
     "32": "icons/icon32.png",
     "48": "icons/icon48.png",
     "128": "icons/icon128.png"
+  },
+  "minimum_chrome_version": "121",
+  "content_security_policy": {
+    "extension_pages": "script-src 'self'; object-src 'none'; base-uri 'none'; connect-src https://generativelanguage.googleapis.com; img-src 'self' data:; frame-src 'none'; form-action 'none'"
   }
 }

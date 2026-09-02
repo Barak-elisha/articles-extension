@@ -10,7 +10,7 @@
 
   // Attributes kept per tag. "*" applies to every allowed tag.
   const ALLOWED_ATTRS = {
-    "*": ["class", "dir", "lang", "title", "style", "align"],
+    "*": ["dir", "lang", "title", "style", "align"],
     A: ["href", "target", "rel"],
     FONT: ["color", "size", "face"],
     OL: ["start", "type"],
@@ -43,26 +43,53 @@
 
   function safeStyle(style) {
     if (typeof style !== "string") return "";
-    // Keep only text-affecting, non-URL declarations.
-    const out = [];
+    // Only formatting used by the article/notes editors may cross this boundary.
+    const allowed = new Set(["color", "background-color", "font-size", "font-weight",
+      "font-style", "text-decoration", "text-align", "vertical-align", "white-space"]);
+    const out = document.createElement("span").style;
     style.split(";").forEach((decl) => {
       const idx = decl.indexOf(":");
       if (idx <= 0) return;
       const prop = decl.slice(0, idx).trim().toLowerCase();
       const val = decl.slice(idx + 1).trim();
-      if (/expression|url\(|javascript:/i.test(val)) return;
-      if (/^(background-image|cursor|behavior|content)$/.test(prop)) return;
-      out.push(prop + ": " + val);
+      if (!allowed.has(prop) || /[\\@{}]|url|expression|var\s*\(|env\s*\(|!important/i.test(val)) return;
+      if (prop === "font-size" && !/^(?:[8-9]|[1-3]\d|4[0-8])(?:\.\d+)?(?:px|pt)$/.test(val)) return;
+      out.setProperty(prop, val);
     });
-    return out.join("; ");
+    return out.cssText;
+  }
+
+  function escapeHtml(input) {
+    return String(input == null ? "" : input).replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
+  }
+
+  function articleContentToHtml(input, format) {
+    const text = String(input == null ? "" : input);
+    // Records without a format predate this boundary; retain their safe formatting.
+    if (format === "html" || (!format && /<[a-z][\s\S]*>/i.test(text))) return sanitizeHtml(text);
+    return escapeHtml(text).replace(/\n/g, "<br>\n");
+  }
+
+  function protectRichTextEditor(editor) {
+    editor.addEventListener("paste", (event) => {
+      event.preventDefault();
+      if (editor.contentEditable !== "true") return;
+      const data = event.clipboardData;
+      const html = data && data.getData("text/html");
+      const safe = html ? sanitizeHtml(html) : articleContentToHtml(data ? data.getData("text/plain") : "", "text");
+      document.execCommand("insertHTML", false, safe);
+    });
+    // A dropped external HTML fragment would otherwise bypass the paste boundary.
+    editor.addEventListener("drop", (event) => event.preventDefault());
   }
 
   function sanitizeHtml(input) {
     const html = String(input == null ? "" : input);
     if (!html) return "";
-    const template = document.createElement("div");
+    const template = document.createElement("template");
     template.innerHTML = html;
-    return cleanNode(template);
+    return cleanNode(template.content);
   }
 
   function cleanNode(node) {
@@ -72,7 +99,8 @@
     return safe.innerHTML;
   }
 
-  function cleanChildren(node, out) {
+  function cleanChildren(node, out, depth = 0) {
+    if (depth > 100) { out.appendChild(document.createTextNode(node.textContent || "")); return; }
     node.childNodes.forEach((child) => {
       if (child.nodeType === 3) {
         // Text is safe.
@@ -81,7 +109,7 @@
       }
       if (child.nodeType !== 1) return;
       const tag = child.tagName.toUpperCase();
-      const isAllowed = tag in ALLOWED_TAGS;
+      const isAllowed = Object.hasOwn(ALLOWED_TAGS, tag);
 
       if (tag === "SCRIPT" || tag === "STYLE" || tag === "IFRAME" || tag === "OBJECT" || tag === "EMBED" || tag === "LINK" || tag === "META" || tag === "BASE" || tag === "FORM" || tag === "INPUT" || tag === "TEXTAREA" || tag === "SELECT" || tag === "BUTTON") {
         // Dangerous: drop entirely (including content for script/style).
@@ -93,7 +121,7 @@
 
       if (!isAllowed) {
         // Unknown tag: keep text content, recurse to strip nested danger.
-        cleanChildren(child, out);
+        cleanChildren(child, out, depth + 1);
         return;
       }
 
@@ -113,12 +141,14 @@
       // Anchor hardening: force rel/target.
       if (tag === "A") {
         el.setAttribute("rel", "noopener noreferrer");
-        if (!el.getAttribute("target")) el.setAttribute("target", "_blank");
+        el.setAttribute("target", "_blank");
       }
-      cleanChildren(child, el);
+      cleanChildren(child, el, depth + 1);
       out.appendChild(el);
     });
   }
 
   window.sanitizeHtml = sanitizeHtml;
+  window.articleContentToHtml = articleContentToHtml;
+  window.protectRichTextEditor = protectRichTextEditor;
 })();

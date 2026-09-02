@@ -80,11 +80,17 @@ async function updateList(id, name) {
 
 async function deleteList(id) {
   const db = await openDB();
-  await tx(db, "lists", "readwrite", (os) => os.delete(id));
-  // remove its articles
-  const articles = await getArticlesByList(id);
-  await tx(db, "articles", "readwrite", (os) => {
-    articles.forEach((a) => os.delete(a.id));
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction(["lists", "articles"], "readwrite");
+    transaction.objectStore("lists").delete(id);
+    const request = transaction.objectStore("articles").index("listId").openCursor(IDBKeyRange.only(id));
+    request.onsuccess = () => {
+      const cursor = request.result;
+      if (cursor) { cursor.delete(); cursor.continue(); }
+    };
+    transaction.oncomplete = resolve;
+    transaction.onabort = () => reject(transaction.error || new Error("List deletion aborted"));
+    transaction.onerror = () => reject(transaction.error);
   });
   return id;
 }
@@ -108,17 +114,29 @@ async function getArticlesByList(listId) {
   });
 }
 
-async function addArticle({ listId, title, content, url }) {
+async function addArticle({ listId, title, content, url, contentFormat = "text" }) {
   const db = await openDB();
   const article = {
     id: "art_" + Date.now() + "_" + Math.random().toString(36).slice(2, 8),
     listId,
     title: title || (window.I18N ? window.I18N.t("noTitle") : "(no title)"),
     content: content || "",
+    contentFormat,
     url: url || "",
     savedAt: Date.now(),
   };
-  await tx(db, "articles", "readwrite", (os) => os.add(article));
+  await new Promise((resolve, reject) => {
+    const transaction = db.transaction(["lists", "articles"], "readwrite");
+    let missingList = false;
+    const request = transaction.objectStore("lists").get(listId);
+    request.onsuccess = () => {
+      if (!request.result) { missingList = true; transaction.abort(); return; }
+      transaction.objectStore("articles").add(article);
+    };
+    transaction.oncomplete = resolve;
+    transaction.onabort = () => reject(new Error(missingList ? "The destination list no longer exists" : "Article save aborted"));
+    transaction.onerror = () => reject(transaction.error);
+  });
   return article;
 }
 

@@ -1,25 +1,34 @@
 (function () {
   const DICT = {
     he: {
+      aiDisclosure: "שימוש ב־AI שולח את המאמר והשיחה לעיבוד ב־Google. הפעולה לבחירתך, באמצעות מפתח ה־API שלך.",
+      aiKeyDisclosure: "המפתח נשמר במכשיר הזה. רענון המודלים שולח אותו ל־Google. להסרה, רוקנו את השדה ושמרו.",
       appTitle: "שומר מאמרים",
+      appSubtitle: "המקום שלך לקרוא ולשמור",
+      saveHeading: "מאמר טוב? שומרים.",
+      saveDescription: "כל המאמרים והרעיונות שלך, במקום אחד.",
+      localNote: "הספרייה שלך נשמרת במכשיר הזה",
+      emptyTitle: "הספרייה שלך מתחילה כאן",
+      emptyDescription: "יוצרים רשימה, פותחים מאמר ושומרים אותו לקריאה בהמשך.",
+      emptyList: "הרשימה מוכנה למאמר הראשון שלך",
       expandTitle: "פתיחה בגודל מלא",
       settingsTitle: "הגדרות",
-      manageLists: "ניהול רשימות",
+      manageLists: "רשימה חדשה",
       newListPlaceholder: "שם רשימה חדשה",
       add: "הוסף",
-      activeList: "רשימה פעילה",
+      activeList: "שמירה לרשימה",
       saveCurrent: "שמור את המאמר הנוכחי",
-      aiToggleLabel: "הוסף תקציר AI (אם נשמר מפתח)",
+      aiToggleLabel: "הוספת תקציר AI",
       myLists: "הרשימות שלי",
       allLists: "כל הרשימות",
-      searchPlaceholder: "חיפוש במאמרים כולל בתוך התוכן...",
+      searchPlaceholder: "חיפוש בספרייה שלך...",
       noSearchResults: "אין תוצאות חיפוש.",
       exportExcel: "ייצוא ל-Excel",
-      back: "← חזרה",
+      back: "חזרה",
       aiSettings: "הגדרות AI",
       aiSummaryLabel: "תקציר AI (Google AI Studio)",
       apiKeyPlaceholder: "הזן את ה-API key מ-Google AI Studio",
-      modelPlaceholder: "מודל (למשל gemini-2.0-flash)",
+      modelPlaceholder: "מודל (למשל gemini-2.5-flash)",
       saveKey: "שמור מפתח",
       languageLabel: "שפת ממשק",
       languageEnglish: "English",
@@ -87,7 +96,7 @@
       bulletList: "רשימת תבליטים",
       numList: "רשימה ממוספרת",
       textSize: "גודל טקסט",
-      size: "גודל ▾",
+      size: "גודל",
       small: "קטן",
       normal: "רגיל",
       large: "גדול",
@@ -114,7 +123,7 @@
       replyError: "שגיאה בתגובה",
       saved: "נשמר ✓",
       chatError: "שגיאה: ",
-      settingsBack: "← חזרה",
+      settingsBack: "חזרה",
       excelFileName: "מאמרים.xlsx",
       chatPrefixUser: "אני",
       chatPrefixAi: "AI",
@@ -142,29 +151,38 @@
       bgExtractFail: "לא ניתן היה לחלץ את המאמר",
     },
     en: {
+      aiDisclosure: "AI sends the article and chat to Google for processing. Optional; uses your API key.",
+      aiKeyDisclosure: "Your key is saved on this device. Refreshing models sends the key to Google. Clear and save to remove it.",
       appTitle: "Article Saver",
+      appSubtitle: "Your personal reading space",
+      saveHeading: "Keep a good read.",
+      saveDescription: "Save articles. Make room for ideas.",
+      localNote: "Your library is saved on this device",
+      emptyTitle: "A home for your next good read",
+      emptyDescription: "Create a list, open an article, and save it for later.",
+      emptyList: "Ready for your first article",
       expandTitle: "Open in full size",
       settingsTitle: "Settings",
-      manageLists: "Manage lists",
+      manageLists: "Create a list",
       newListPlaceholder: "New list name",
       add: "Add",
-      activeList: "Active list",
+      activeList: "Save to list",
       saveCurrent: "Save current article",
-      aiToggleLabel: "Include AI summary (if a key is saved)",
+      aiToggleLabel: "Include an AI summary",
       myLists: "My lists",
       allLists: "All lists",
-      searchPlaceholder: "Search articles including their content...",
+      searchPlaceholder: "Search your library...",
       noSearchResults: "No search results.",
       exportExcel: "Export to Excel",
-      back: "← Back",
+      back: "Back",
       aiSettings: "AI settings",
       aiSummaryLabel: "AI summary (Google AI Studio)",
       apiKeyPlaceholder: "Enter the API key from Google AI Studio",
-      modelPlaceholder: "Model (e.g. gemini-2.0-flash)",
+      modelPlaceholder: "Model (e.g. gemini-2.5-flash)",
       saveKey: "Save key",
       languageLabel: "Interface language",
       languageEnglish: "English",
-      languageHebrew: "עברית",
+      languageHebrew: "Hebrew",
       noListsOption: "No lists - create one first",
       noLists: "No lists yet.",
       noList: "No list",
@@ -228,7 +246,7 @@
       bulletList: "Bullet list",
       numList: "Numbered list",
       textSize: "Text size",
-      size: "Size ▾",
+      size: "Size",
       small: "Small",
       normal: "Normal",
       large: "Large",
@@ -255,7 +273,7 @@
       replyError: "Reply error",
       saved: "Saved ✓",
       chatError: "Error: ",
-      settingsBack: "← Back",
+      settingsBack: "Back",
       excelFileName: "articles.xlsx",
       chatPrefixUser: "Me",
       chatPrefixAi: "AI",
@@ -284,7 +302,7 @@
     },
   };
 
-  const LANGS = ["he", "en"];
+  const LANGS = ["en", "he"];
   const DEFAULT_LANG = "en";
 
   let currentLang = DEFAULT_LANG;
@@ -325,9 +343,13 @@
       });
       document.querySelectorAll("[data-i18n-title]").forEach((el) => {
         el.title = this.t(el.getAttribute("data-i18n-title"));
+        if (el.hasAttribute("aria-label")) el.setAttribute("aria-label", el.title);
       });
       document.querySelectorAll("[data-i18n-placeholder]").forEach((el) => {
         el.setAttribute("placeholder", this.t(el.getAttribute("data-i18n-placeholder")));
+      });
+      document.querySelectorAll("[data-i18n-label]").forEach((el) => {
+        el.setAttribute("aria-label", this.t(el.getAttribute("data-i18n-label")));
       });
       const root = document.documentElement;
       root.lang = currentLang;

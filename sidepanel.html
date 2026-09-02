@@ -2,82 +2,89 @@
 <html lang="en" dir="ltr">
 <head>
   <meta charset="UTF-8" />
+  <title>Article Saver</title>
+  <link rel="icon" href="icons/icon32.png" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <link rel="stylesheet" href="sidepanel.css" />
 </head>
 <body>
   <header class="app-header">
-    <div class="app-title" data-i18n="appTitle">Article Saver</div>
+    <div class="brand"><span class="brand-mark" data-icon="book-open-check" aria-hidden="true"></span><div><div class="app-title" data-i18n="appTitle">Article Saver</div><div class="app-subtitle" data-i18n="appSubtitle">Your personal reading space</div></div></div>
     <div class="header-actions">
-      <button id="expandBtn" class="gear-btn" data-i18n-title="expandTitle" title="Open in full size">⛶</button>
-      <button id="settingsBtn" class="gear-btn" data-i18n-title="settingsTitle" title="Settings">⚙</button>
+      <button id="expandBtn" class="gear-btn" data-i18n-title="expandTitle" title="Open in full size" aria-label="Open in full size" data-icon="arrow-up-right"></button>
+      <button id="settingsBtn" class="gear-btn" data-i18n-title="settingsTitle" title="Settings" aria-label="Settings" data-icon="settings-2"></button>
     </div>
   </header>
 
   <div id="mainView">
-    <section id="manageSection" class="card">
-      <div class="label" data-i18n="manageLists">Manage lists</div>
-      <div class="row">
-        <input id="newListName" class="input" type="text" data-i18n-placeholder="newListPlaceholder" placeholder="New list name" />
-        <button id="addListBtn" class="btn btn-secondary btn-small" data-i18n="add">Add</button>
-      </div>
+    <section id="saveSection" class="card">
+      <div class="save-heading" data-i18n="saveHeading">Keep a good read.</div>
+      <p class="section-description" data-i18n="saveDescription">Save articles. Make room for ideas.</p>
+      <label class="label" for="listSelect" data-i18n="activeList">Save to list</label>
+      <select id="listSelect" class="select"></select>
+      <button id="saveBtn" data-icon="bookmark-plus" class="btn btn-primary" data-i18n="saveCurrent">Save current article</button>
+      <label class="checkbox">
+        <input type="checkbox" id="aiToggle" />
+        <span data-i18n="aiToggleLabel">Include an AI summary</span>
+      </label>
+      <p class="section-description" data-i18n="aiDisclosure">AI sends the article and chat to Google for processing. Optional; uses your API key.</p>
+      <div id="saveStatus" class="status" role="status" aria-live="polite"></div>
     </section>
 
-    <section id="saveSection" class="card">
-      <label class="label" for="listSelect" data-i18n="activeList">Active list</label>
-      <select id="listSelect" class="select"></select>
-      <button id="saveBtn" class="btn btn-primary" data-i18n="saveCurrent">Save current article</button>
-      <label class="checkbox">
-        <input type="checkbox" id="aiToggle" checked />
-        <span data-i18n="aiToggleLabel">Include AI summary (if a key is saved)</span>
-      </label>
-      <div id="saveStatus" class="status"></div>
+    <section id="manageSection" class="card">
+      <div class="label" data-i18n="manageLists">Create a list</div>
+      <div class="row">
+        <input id="newListName" data-i18n-label="newListPlaceholder" aria-label="New list name" class="input" type="text" data-i18n-placeholder="newListPlaceholder" placeholder="New list name" />
+        <button id="addListBtn" data-icon="plus" class="btn btn-secondary btn-small" data-i18n="add">Add</button>
+      </div>
     </section>
 
     <section id="listsSection" class="card">
       <div class="section-head">
-        <div class="label" data-i18n="myLists">My lists</div>
-        <button id="exportBtn" class="btn btn-secondary btn-small" data-i18n="exportExcel">Export to Excel</button>
+        <div class="library-heading"><span class="label" data-i18n="myLists">My lists</span><span id="libraryCount" class="library-count">0</span></div>
+        <button id="exportBtn" data-icon="download" class="btn btn-secondary btn-small" data-i18n="exportExcel">Export to Excel</button>
       </div>
-      <input id="searchInput" class="input" type="search" data-i18n-placeholder="searchPlaceholder" placeholder="Search articles including their content..." />
+      <div class="search-field" data-icon="search"><input id="searchInput" data-i18n-label="searchPlaceholder" aria-label="Search articles" class="input" type="search" data-i18n-placeholder="searchPlaceholder" placeholder="Search your library..." /></div>
       <div id="listsContainer" class="lists"></div>
     </section>
+    <div class="local-note" data-icon="shield-check" data-i18n="localNote">Your library is saved on this device</div>
   </div>
 
   <div id="settingsView" class="hidden">
-    <button id="settingsBackBtn" class="btn btn-small" data-i18n="settingsBack">← Back</button>
+    <button id="settingsBackBtn" data-icon="chevron-left" class="btn btn-small" data-i18n="settingsBack">Back</button>
     <section id="languageSection" class="card">
-      <div class="label" data-i18n="languageLabel">Interface language</div>
+      <label class="label" for="langSelect" data-i18n="languageLabel">Interface language</label>
       <select id="langSelect" class="select">
         <option value="en" data-i18n="languageEnglish">English</option>
-        <option value="he" data-i18n="languageHebrew">עברית</option>
+        <option value="he" data-i18n="languageHebrew">Hebrew</option>
       </select>
     </section>
     <section id="aiSection" class="card">
-      <button id="aiSettingsToggle" class="btn btn-secondary btn-small" data-i18n="aiSettings">AI settings</button>
+      <button id="aiSettingsToggle" data-icon="sparkles" class="btn btn-secondary btn-small" data-i18n="aiSettings">AI settings</button>
       <div id="aiSettings" class="hidden">
         <div class="label" data-i18n="aiSummaryLabel">AI summary (Google AI Studio)</div>
-        <input id="apiKeyInput" class="input" type="password" data-i18n-placeholder="apiKeyPlaceholder" placeholder="Enter the API key from Google AI Studio" />
-        <div class="label" data-i18n="modelLabel">Model</div>
+        <p class="section-description" data-i18n="aiKeyDisclosure">Your key is saved on this device. Refreshing models sends the key to Google. Clear and save to remove it.</p>
+        <input id="apiKeyInput" data-i18n-label="apiKeyPlaceholder" aria-label="Google AI Studio API key" class="input" type="password" data-i18n-placeholder="apiKeyPlaceholder" placeholder="Enter the API key from Google AI Studio" />
+        <label class="label" for="modelSelect" data-i18n="modelLabel">Model</label>
         <div class="row">
           <select id="modelSelect" class="select">
-            <option value="" data-i18n="modelPlaceholder">Model (e.g. gemini-2.0-flash)</option>
+            <option value="" data-i18n="modelPlaceholder">Model (e.g. gemini-2.5-flash)</option>
           </select>
-          <button id="loadModelsBtn" class="btn btn-secondary btn-small" data-i18n="loadModels">Refresh models</button>
+          <button id="loadModelsBtn" data-icon="refresh-cw" class="btn btn-secondary btn-small" data-i18n="loadModels">Refresh models</button>
         </div>
         <div id="modelStatus" class="status muted"></div>
-        <button id="saveApiBtn" class="btn btn-secondary btn-small" data-i18n="saveKey">Save key</button>
+        <button id="saveApiBtn" data-icon="key-round" class="btn btn-secondary btn-small" data-i18n="saveKey">Save key</button>
       </div>
     </section>
     <div class="footer">
-      <div>Article Saver v1.0.0 · MIT License</div>
+      <div>Article Saver v1.1.0 · MIT License</div>
       <div>© 2026 Barak Elisha</div>
       <div><a href="https://github.com/Barak-elisha/articles-extension" target="_blank" rel="noopener noreferrer">GitHub Repository</a></div>
     </div>
   </div>
 
   <div id="detailView" class="detail hidden">
-    <button id="backBtn" class="btn btn-small" data-i18n="back">← Back</button>
+    <button id="backBtn" data-icon="chevron-left" class="btn btn-small" data-i18n="back">Back</button>
     <div id="detailBody"></div>
   </div>
 

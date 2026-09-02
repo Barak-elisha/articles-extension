@@ -47,56 +47,33 @@ function langPrompts(lang) {
 
 async function generateSummary(apiKey, content, title, model, lang) {
   if (!apiKey) throw new Error(lang === "he" ? "לא הוזן API key" : "No API key provided");
-  const m = model || "gemini-2.0-flash";
+  const m = model || "gemini-2.5-flash";
   const p = langPrompts(lang);
   const prompt =
     p.summaryInstruction + "\n\n" +
     p.articleOpen +
     (title ? p.titleLabel + title + "\n\n" : "") +
-    p.bodyLabel + content.slice(0, 12000) +
+    p.bodyLabel + String(content || "").slice(0, 12000) +
     p.articleClose;
 
-  const resp = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/" +
-      encodeURIComponent(m) +
-      ":generateContent",
-    {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        "x-goog-api-key": apiKey,
-      },
-      body: JSON.stringify({
-        contents: [{ parts: [{ text: prompt }] }],
-        generationConfig: { maxOutputTokens: 2048 },
-      }),
-    }
-  );
-
-  if (!resp.ok) {
-    let detail = "HTTP " + resp.status;
-    try {
-      const j = await resp.json();
-      if (j && j.error && j.error.message) detail = j.error.message;
-    } catch (e) {}
-    throw new Error((lang === "he" ? "שגיאה מ-Google AI: " : "Error from Google AI: ") + detail);
-  }
-
-  const json = await resp.json();
+  const json = await requestGemini(apiKey, m, {
+    contents: [{ parts: [{ text: prompt }] }],
+    generationConfig: generationConfig(m),
+  }, lang);
   const parts =
     (json.candidates &&
       json.candidates[0] &&
       json.candidates[0].content &&
       json.candidates[0].content.parts) ||
     [];
-  const text = parts.map((p) => p.text || "").join("");
+  const text = parts.filter((p) => !p.thought).map((p) => p.text || "").join("").trim();
   if (!text) throw new Error(lang === "he" ? "המודל לא החזיר תקציר" : "The model did not return a summary");
   return text.trim();
 }
 
 async function chatArticle(apiKey, model, title, content, messages, lang) {
   if (!apiKey) throw new Error(lang === "he" ? "לא הוזן API key" : "No API key provided");
-  const m = model || "gemini-2.0-flash";
+  const m = model || "gemini-2.5-flash";
   const p = langPrompts(lang);
   const sys = p.chatSystem;
   const intro = lang === "he"
@@ -119,38 +96,50 @@ async function chatArticle(apiKey, model, title, content, messages, lang) {
       });
     });
 
-  const resp = await fetch(
-    "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(m) + ":generateContent",
-    {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
-      body: JSON.stringify({
-        systemInstruction: { parts: [{ text: sys }] },
-        contents,
-        generationConfig: { maxOutputTokens: 2048 },
-      }),
-    }
-  );
-
-  if (!resp.ok) {
-    let detail = "HTTP " + resp.status;
-    try {
-      const j = await resp.json();
-      if (j && j.error && j.error.message) detail = j.error.message;
-    } catch (e) {}
-    throw new Error((lang === "he" ? "שגיאה מ-Google AI: " : "Error from Google AI: ") + detail);
-  }
-
-  const json = await resp.json();
+  const json = await requestGemini(apiKey, m, {
+    systemInstruction: { parts: [{ text: sys }] },
+    contents,
+    generationConfig: generationConfig(m),
+  }, lang);
   const parts =
     (json.candidates &&
       json.candidates[0] &&
       json.candidates[0].content &&
       json.candidates[0].content.parts) ||
     [];
-  const text = parts.map((p) => p.text || "").join("");
+  const text = parts.filter((p) => !p.thought).map((p) => p.text || "").join("").trim();
   if (!text) throw new Error(lang === "he" ? "המודל לא החזיר תשובה" : "The model did not return an answer");
   return text.trim();
+}
+
+function generationConfig(model) {
+  const config = { maxOutputTokens: 2048 };
+  // Preserve the output budget for the answer when using the default model.
+  if (model === "gemini-2.5-flash") config.thinkingConfig = { thinkingBudget: 0 };
+  return config;
+}
+
+async function requestGemini(apiKey, model, body, lang) {
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  try {
+    const resp = await fetch(
+      "https://generativelanguage.googleapis.com/v1beta/models/" + encodeURIComponent(model) + ":generateContent",
+      { method: "POST", headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey },
+        body: JSON.stringify(body), signal: controller.signal }
+    );
+    if (!resp.ok) {
+      let detail = "HTTP " + resp.status;
+      try { const json = await resp.json(); if (json.error && json.error.message) detail = json.error.message; } catch (_) {}
+      throw new Error((lang === "he" ? "שגיאה מ-Google AI: " : "Error from Google AI: ") + detail);
+    }
+    return await resp.json();
+  } catch (error) {
+    if (controller.signal.aborted) throw new Error(lang === "he" ? "תם זמן ההמתנה ל-Google AI. נסו שוב." : "Google AI timed out. Please try again.");
+    throw error;
+  } finally {
+    clearTimeout(timeout);
+  }
 }
 
 async function extractActiveTab(lang) {
@@ -163,7 +152,7 @@ async function extractActiveTab(lang) {
   if (!tab || tab.id == null || (tab.url && tab.url.startsWith(extPrefix))) {
     const all = await chrome.tabs.query({ currentWindow: true });
     tab = all
-      .filter((t) => t.id != null && t.url && t.url.startsWith("http"))
+      .filter((t) => t.id != null && t.url && /^https?:/.test(t.url))
       .sort((a, b) => (b.lastAccessed || 0) - (a.lastAccessed || 0))[0];
   }
 

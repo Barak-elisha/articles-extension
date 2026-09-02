@@ -7,10 +7,34 @@
   let activeListId = null;
   let activeArticleId = null;
   let aiApiKey = "";
-  let aiModel = "gemini-2.0-flash";
+  let aiModel = "gemini-2.5-flash";
   let searchQuery = "";
 
   const t = (k) => window.I18N.t(k);
+
+  function setIcon(button, name, label, iconOnly = true) {
+    button.dataset.icon = name;
+    button.textContent = iconOnly ? "" : label;
+    if (label) {
+      button.title = label;
+      button.setAttribute("aria-label", label);
+    }
+  }
+
+  function emptyState(title, description, icon = "library") {
+    const box = document.createElement("div");
+    box.className = "empty-state";
+    const mark = document.createElement("span");
+    mark.className = "empty-mark";
+    mark.dataset.icon = icon;
+    mark.setAttribute("aria-hidden", "true");
+    const heading = document.createElement("strong");
+    heading.textContent = title;
+    const text = document.createElement("p");
+    text.textContent = description;
+    box.append(mark, heading, text);
+    return box;
+  }
 
   function escapeRegExp(s) {
     return String(s).replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
@@ -24,9 +48,9 @@
   // handled with line-based regexes; the contentEditable editor stores sanitized
   // HTML, where blank lines are empty block elements (e.g. <div>\t</div>) that the
   // regexes cannot see, so those go through the DOM-based normalizeHtml instead.
-  function normalizeBody(s) {
+  function normalizeBody(s, format) {
     const str = String(s || "");
-    if (/<[a-z][\s\S]*>/i.test(str)) return normalizeHtml(str);
+    if (format !== "text" && /<[a-z][\s\S]*>/i.test(str)) return normalizeHtml(str);
     return str
       .replace(/\r\n/g, "\n")
       .replace(/[ \t]+$/gm, "")
@@ -125,10 +149,8 @@
   }
 
   // Plain text -> sanitized HTML for the contentEditable full-text editor.
-  function contentToHtml(s) {
-    const str = String(s || "");
-    if (/<[a-z][\s\S]*>/i.test(str)) return sanitizeHtml(str);
-    return sanitizeHtml(str.replace(/\n/g, "<br>\n"));
+  function contentToHtml(s, format) {
+    return articleContentToHtml(s, format);
   }
 
   function articleMatches(a, query) {
@@ -263,6 +285,11 @@
     else activeListId = null;
     if (activeListId) await setSetting("activeListId", activeListId);
     await loadAiSettings();
+    if (activeArticleId && !articles.some(a => a.id === activeArticleId)) {
+      activeArticleId = null;
+      detailView.classList.add("hidden");
+      if (settingsView.classList.contains("hidden")) mainView.classList.remove("hidden");
+    }
     render();
   }
 
@@ -278,32 +305,37 @@
     const key = await getSetting("geminiApiKey");
     aiApiKey = key ? key.value : "";
     const model = await getSetting("geminiModel");
-    aiModel = model ? model.value || "gemini-2.0-flash" : "gemini-2.0-flash";
+    aiModel = model && model.value && !/^gemini-2\.0-/.test(model.value) ? model.value : "gemini-2.5-flash";
+    const autoSummary = await getSetting("autoSummary");
+    aiToggle.checked = !!(autoSummary && autoSummary.value);
     apiKeyInput.value = aiApiKey;
-    populateModelSelect([]);
-    if (aiModel) {
-      const opt = document.createElement("option");
-      opt.value = aiModel;
-      opt.textContent = aiModel;
-      modelSelect.appendChild(opt);
-      modelSelect.value = aiModel;
-    }
-    if (aiApiKey) loadGeminiModels(aiApiKey).catch(() => {});
+    populateModelSelect([aiModel], aiModel);
   }
 
   async function loadGeminiModels(key) {
     modelStatus.className = "status muted";
     modelStatus.textContent = t("modelStatusLoading");
+    if (loadModelsBtn.disabled) return;
+    loadModelsBtn.disabled = true;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 30000);
     try {
-      const resp = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models?key=" + encodeURIComponent(key)
-      );
-      if (!resp.ok) throw new Error("HTTP " + resp.status);
-      const json = await resp.json();
-      const names = (json.models || [])
-        .map((m) => (m.name || "").replace(/^models\//, ""))
-        .filter((n) => /^gemini-/.test(n))
-        .sort();
+      const models = [];
+      let pageToken = "";
+      do {
+        const url = new URL("https://generativelanguage.googleapis.com/v1beta/models");
+        url.searchParams.set("pageSize", "1000");
+        if (pageToken) url.searchParams.set("pageToken", pageToken);
+        const resp = await fetch(url.href, { headers: { "x-goog-api-key": key }, signal: controller.signal });
+        if (!resp.ok) throw new Error("HTTP " + resp.status);
+        const json = await resp.json();
+        models.push(...(json.models || []));
+        pageToken = json.nextPageToken || "";
+      } while (pageToken);
+      const names = [...new Set(models
+        .filter(m => (m.supportedGenerationMethods || []).includes("generateContent"))
+        .map(m => (m.name || "").replace(/^models\//, ""))
+        .filter(n => /^gemini-/.test(n) && !/^gemini-2\.0-/.test(n)))].sort();
       populateModelSelect(names);
       modelStatus.className = "status success";
       modelStatus.textContent = t("modelStatusLoaded") + " " + names.length;
@@ -312,12 +344,15 @@
       modelStatus.className = "status error";
       modelStatus.textContent = t("modelLoadFailed") + (err.message || "");
       throw err;
+    } finally {
+      clearTimeout(timeout);
+      loadModelsBtn.disabled = false;
     }
   }
 
-  function populateModelSelect(names) {
-    const prev = modelSelect.value;
-    const list = (names || []).filter(Boolean);
+  function populateModelSelect(names, selected) {
+    const prev = selected || modelSelect.value;
+    const list = [...new Set((names || []).filter(Boolean))];
     if (prev && !list.includes(prev)) list.unshift(prev);
     modelSelect.innerHTML = "";
     if (!list.length) {
@@ -335,13 +370,14 @@
       modelSelect.appendChild(opt);
     });
     if (prev && list.includes(prev)) modelSelect.value = prev;
-    else if (list.includes("gemini-2.0-flash")) modelSelect.value = "gemini-2.0-flash";
+    else if (list.includes("gemini-2.5-flash")) modelSelect.value = "gemini-2.5-flash";
     else modelSelect.value = list[0];
   }
 
   function render() {
     renderListSelect();
     renderLists();
+    document.querySelector("#libraryCount").textContent = articles.length;
   }
 
   function renderListSelect() {
@@ -377,10 +413,7 @@
   function renderLists() {
     listsContainer.innerHTML = "";
     if (!lists.length) {
-      const div = document.createElement("div");
-      div.className = "status muted";
-      div.textContent = t("noLists");
-      listsContainer.appendChild(div);
+      listsContainer.appendChild(emptyState(t("emptyTitle"), t("emptyDescription")));
       return;
     }
     const visibleLists = activeListId
@@ -418,24 +451,35 @@
 
       const editBtn = document.createElement("button");
       editBtn.className = "icon-btn";
-      editBtn.textContent = t("edit");
+      setIcon(editBtn, "pencil", t("editTitle"));
       editBtn.title = t("editTitle");
       editBtn.addEventListener("click", () => renameList(list.id));
 
       const delBtn = document.createElement("button");
       delBtn.className = "icon-btn danger";
-      delBtn.textContent = t("delete");
+      setIcon(delBtn, "trash-2", t("deleteListTitle"));
       delBtn.title = t("deleteListTitle");
       delBtn.addEventListener("click", () => removeList(list.id));
 
       actions.appendChild(editBtn);
       actions.appendChild(delBtn);
 
+      const folder = document.createElement("span");
+      folder.className = "folder-mark";
+      folder.dataset.icon = "folder";
+      folder.setAttribute("aria-hidden", "true");
+      head.appendChild(folder);
       head.appendChild(name);
       head.appendChild(count);
       head.appendChild(actions);
       item.appendChild(head);
 
+      if (!listArticles.length) {
+        const hint = document.createElement("p");
+        hint.className = "empty-list";
+        hint.textContent = t("emptyList");
+        item.appendChild(hint);
+      }
       listArticles.forEach((a) => {
         item.appendChild(renderArticleRow(a));
       });
@@ -444,10 +488,7 @@
     });
 
     if (searchQuery.trim() && !listsContainer.children.length) {
-      const div = document.createElement("div");
-      div.className = "status muted";
-      div.textContent = t("noSearchResults");
-      listsContainer.appendChild(div);
+      listsContainer.appendChild(emptyState(t("noSearchResults"), "", "search"));
     }
     applyActiveRow();
   }
@@ -457,7 +498,7 @@
     row.className = "article-item";
     row.dataset.id = a.id;
 
-    const title = document.createElement("a");
+    const title = document.createElement("button");
     title.className = "article-title";
     title.textContent = a.title || t("noTitle");
     title.title = t("openView");
@@ -465,7 +506,7 @@
 
     const openBtn = document.createElement("button");
     openBtn.className = "icon-btn";
-    openBtn.textContent = t("open");
+    setIcon(openBtn, "arrow-up-right", t("openSource"));
     openBtn.title = t("openSource");
     openBtn.addEventListener("click", () => {
       if (a.url) chrome.tabs.create({ url: a.url });
@@ -473,11 +514,21 @@
 
     const delBtn = document.createElement("button");
     delBtn.className = "icon-btn danger";
-    delBtn.textContent = "✕";
+    setIcon(delBtn, "trash-2", t("deleteArticleTitle"));
     delBtn.title = t("deleteArticleTitle");
     delBtn.addEventListener("click", () => removeArticle(a.id));
 
-    row.appendChild(title);
+    const articleInfo = document.createElement("div");
+    articleInfo.className = "article-info";
+    articleInfo.appendChild(title);
+    const source = document.createElement("div");
+    source.className = "article-source";
+    let host = "";
+    try { host = new URL(a.url).hostname.replace(/^www\./, ""); } catch (_) {}
+    const date = a.savedAt ? new Date(a.savedAt).toLocaleDateString(window.I18N.lang, { month: "short", day: "numeric" }) : "";
+    source.textContent = [host, date].filter(Boolean).join(" · ");
+    articleInfo.appendChild(source);
+    row.appendChild(articleInfo);
     row.appendChild(openBtn);
     row.appendChild(delBtn);
     return row;
@@ -486,6 +537,7 @@
   /* ---------- Actions ---------- */
 
   async function saveCurrentArticle() {
+    if (saveBtn.disabled) return;
     saveStatus.className = "status";
     saveStatus.textContent = t("extracting");
     if (!activeListId) {
@@ -493,16 +545,21 @@
       saveStatus.textContent = t("createListFirst");
       return;
     }
+    const destinationListId = activeListId;
+    const includeSummary = aiToggle.checked;
+    saveBtn.disabled = true;
     try {
       const resp = await chrome.runtime.sendMessage({ type: "EXTRACT_ARTICLE", lang: window.I18N.lang });
       if (!resp || !resp.ok) throw new Error((resp && resp.error) || t("extractError"));
 
       const data = {
         title: resp.data.title,
-        content: normalizeBody(resp.data.content),
+        content: normalizeBody(resp.data.content, "text"),
+        contentFormat: "text",
         url: resp.data.url,
       };
 
+      articles = await getArticles();
       const existing = data.url && articles.find((a) => a.url && a.url === data.url);
 
       let article;
@@ -517,16 +574,17 @@
           article = await updateArticle(existing.id, {
             title: data.title,
             content: data.content,
+            contentFormat: data.contentFormat,
             url: data.url,
           });
         } else {
-          article = await addArticle({ listId: activeListId, ...data });
+          article = await addArticle({ listId: destinationListId, ...data });
         }
       } else {
-        article = await addArticle({ listId: activeListId, ...data });
+        article = await addArticle({ listId: destinationListId, ...data });
       }
 
-      if (aiToggle.checked) {
+      if (includeSummary) {
         if (!aiApiKey) {
           saveStatus.className = "status error";
           saveStatus.textContent = t("savedNoKey");
@@ -566,13 +624,16 @@
     } catch (err) {
       saveStatus.className = "status error";
       saveStatus.textContent = t("errorPrefix") + err.message;
+    } finally {
+      saveBtn.disabled = false;
     }
   }
 
   async function onAddList() {
     const name = newListName.value.trim();
     if (!name) return;
-    await addList(name);
+    const created = await addList(name);
+    await setSetting("activeListId", created.id);
     newListName.value = "";
     await loadAll();
   }
@@ -598,7 +659,7 @@
     if (!confirm(t("deleteArticleConfirm"))) return;
     await deleteArticle(id);
     articles = await getArticles();
-    if (activeArticleId === id) { activeArticleId = null; detailView.classList.add("hidden"); }
+    if (activeArticleId === id) { activeArticleId = null; detailView.classList.add("hidden"); mainView.classList.remove("hidden"); }
     render();
   }
 
@@ -609,8 +670,8 @@
       alert(t("noArticlesExport"));
       return;
     }
-    const blob = await buildExcelBlob(freshArticles, freshLists);
     try {
+      const blob = await buildExcelBlob(freshArticles, freshLists);
       if (window.showSaveFilePicker) {
         const handle = await window.showSaveFilePicker({
           suggestedName: t("excelFileName"),
@@ -641,12 +702,7 @@
     const key = apiKeyInput.value.trim();
     await setSetting("geminiApiKey", key);
     aiApiKey = key;
-    if (key) {
-      try {
-        await loadGeminiModels(key);
-      } catch (e) {}
-    }
-    const model = modelSelect.value || "gemini-2.0-flash";
+    const model = modelSelect.value || "gemini-2.5-flash";
     await setSetting("geminiModel", model);
     aiModel = model;
     alert(t("aiSaved"));
@@ -738,7 +794,7 @@
       html += '<p style="margin:4px 0;">' + mdInline(line) + "</p>";
     }
     closeList();
-    return html;
+    return sanitizeHtml(html);
   }
 
   function showDetail(a) {
@@ -753,7 +809,7 @@
     const titleEditBtn = document.createElement("button");
     titleEditBtn.type = "button";
     titleEditBtn.className = "icon-btn title-edit-btn";
-    titleEditBtn.textContent = "✎";
+    setIcon(titleEditBtn, "pencil", t("editTitleLabel"));
     titleEditBtn.title = t("editTitleLabel");
     titleEditBtn.addEventListener("click", () => {
       const current = titleRow.querySelector(".detail-title");
@@ -777,7 +833,7 @@
         }
         div.textContent = newTitle;
         input.replaceWith(div);
-        applyActiveRow();
+        renderLists();
       };
 
       input.addEventListener("keydown", (e) => {
@@ -794,8 +850,9 @@
     url.href = a.url;
     url.textContent = a.url;
     url.target = "_blank";
+    url.rel = "noopener noreferrer";
 
-    const metaBaseText = t("listOf") + listName(a.listId) + "  |  " + (a.savedAt ? new Date(a.savedAt).toLocaleString() : "");
+    const metaBaseText = t("listOf") + listName(a.listId) + "  |  " + (a.savedAt ? new Date(a.savedAt).toLocaleString(window.I18N.lang) : "");
     const meta = document.createElement("div");
     meta.className = "status muted";
     meta.textContent = metaBaseText;
@@ -807,17 +864,20 @@
     content.spellcheck = false;
     content.dataset.placeholder = t("noBody");
     content.dir = detectDirection(a.content);
-    content.innerHTML = normalizeBody(contentToHtml(a.content));
+    content.innerHTML = normalizeBody(contentToHtml(a.content, a.contentFormat), "html");
     content.title = t("editHint");
+    protectRichTextEditor(content);
 
     const saveContent = async () => {
       const html = sanitizeHtml(content.innerHTML);
       const val = normalizeBody(html);
       if (val === a.content) return;
       try {
-        await updateArticle(a.id, { content: val });
+        await updateArticle(a.id, { content: val, contentFormat: "html" });
+        a.contentFormat = "html";
         a.content = val;
         articles = await getArticles();
+        renderLists();
         meta.className = "status success";
         meta.textContent = meta.dataset.base + t("textSaved");
         setTimeout(() => { meta.className = "status muted"; meta.textContent = meta.dataset.base; }, 2500);
@@ -843,12 +903,12 @@
     const prevBtn = document.createElement("button");
     prevBtn.type = "button";
     prevBtn.className = "icon-btn";
-    prevBtn.textContent = "▲";
+    setIcon(prevBtn, "chevron-up", t("prevMatch"));
     prevBtn.title = t("prevMatch");
     const nextBtn = document.createElement("button");
     nextBtn.type = "button";
     nextBtn.className = "icon-btn";
-    nextBtn.textContent = "▼";
+    setIcon(nextBtn, "chevron-down", t("nextMatch"));
     nextBtn.title = t("nextMatch");
     searchRow.appendChild(searchBox);
     searchRow.appendChild(prevBtn);
@@ -993,7 +1053,7 @@
     const clearMarker = document.createElement("button");
     clearMarker.type = "button";
     clearMarker.className = "icon-btn notes-tb";
-    clearMarker.textContent = "✕";
+    setIcon(clearMarker, "eraser", t("removeHighlight"));
     clearMarker.title = t("removeHighlight");
     clearMarker.addEventListener("mousedown", (e) => { e.preventDefault(); contentSavedRange = captureContentRange(); });
     clearMarker.addEventListener("click", () => {
@@ -1023,11 +1083,11 @@
     const regenBtn = document.createElement("button");
     regenBtn.type = "button";
     regenBtn.className = "btn btn-secondary btn-small";
-    regenBtn.textContent = t("regenerate");
+    setIcon(regenBtn, "refresh-cw", t("regenerate"), false);
     const chatBtn = document.createElement("button");
     chatBtn.type = "button";
     chatBtn.className = "btn btn-secondary btn-small";
-    chatBtn.textContent = t("chatButton");
+    setIcon(chatBtn, "messages-square", t("chatButton"), false);
     const summaryActions = document.createElement("div");
     summaryActions.className = "summary-actions";
     summaryActions.appendChild(chatBtn);
@@ -1042,6 +1102,10 @@
     sumStatus.className = "status muted";
     summaryBox.appendChild(sText);
     summaryBox.appendChild(sumStatus);
+    const aiDisclosure = document.createElement("p");
+    aiDisclosure.className = "section-description";
+    aiDisclosure.textContent = t("aiDisclosure");
+    summaryBox.appendChild(aiDisclosure);
     detailMid.appendChild(summaryBox);
 
     regenBtn.addEventListener("click", async () => {
@@ -1066,6 +1130,7 @@
         a.summary = resp.summary;
         await updateArticle(a.id, { summary: resp.summary });
         articles = await getArticles();
+        renderLists();
         sText.innerHTML = renderMarkdown(resp.summary);
         sumStatus.className = "status success";
         sumStatus.textContent = t("summaryUpdated");
@@ -1085,6 +1150,7 @@
     const notes = document.createElement("div");
     notes.className = "input notes-input rich-text";
     notes.contentEditable = "true";
+    protectRichTextEditor(notes);
     notes.innerHTML = sanitizeHtml(a.notes);
     notes.dataset.placeholder = t("notesPlaceholder");
     const toolbar = document.createElement("div");
@@ -1103,15 +1169,15 @@
       }
     };
     const cmds = [
-      { label: "ב", cmd: "bold", title: t("bold") },
-      { label: "I", cmd: "italic", title: t("italic") },
-      { label: "•≡", cmd: "insertUnorderedList", title: t("bulletList") },
-      { label: "1≡", cmd: "insertOrderedList", title: t("numList") },
+      { icon: "bold", cmd: "bold", title: t("bold") },
+      { icon: "italic", cmd: "italic", title: t("italic") },
+      { icon: "list", cmd: "insertUnorderedList", title: t("bulletList") },
+      { icon: "list-ordered", cmd: "insertOrderedList", title: t("numList") },
     ];
     for (const c of cmds) {
       const b = document.createElement("button");
       b.type = "button";
-      b.textContent = c.label;
+      setIcon(b, c.icon, c.title);
       b.title = c.title;
       b.className = "icon-btn notes-tb";
       b.addEventListener("mousedown", (e) => e.preventDefault());
@@ -1163,8 +1229,11 @@
     noteStatus.className = "status muted";
     const saveNotes = async () => {
       try {
-        await updateArticle(a.id, { notes: notes.innerHTML });
+        const safeNotes = sanitizeHtml(notes.innerHTML);
+        await updateArticle(a.id, { notes: safeNotes });
+        a.notes = safeNotes;
         articles = await getArticles();
+        renderLists();
         noteStatus.className = "status success";
         noteStatus.textContent = t("notesSaved");
         setTimeout(() => { noteStatus.textContent = ""; }, 2500);
@@ -1202,7 +1271,7 @@
     const chatSend = document.createElement("button");
     chatSend.type = "button";
     chatSend.className = "btn btn-primary btn-small";
-    chatSend.textContent = t("send");
+    setIcon(chatSend, "send", t("send"), false);
     const chatRow = document.createElement("div");
     chatRow.className = "chat-input-row";
     chatRow.appendChild(chatInput);
@@ -1230,12 +1299,13 @@
     };
     chatDeleteFn = async (idx) => {
       const arr = (a.chat || []).slice();
-      if (idx >= arr.length) return;
+      if (!Number.isInteger(idx) || idx < 0 || idx >= arr.length) return;
       arr.splice(idx, 1);
       a.chat = arr;
       try {
         await updateArticle(a.id, { chat: arr });
         articles = await getArticles();
+        renderLists();
       } catch (err) {
         chatStatus.className = "status error";
         chatStatus.textContent = t("chatDeleteFailed") + err.message;
@@ -1245,6 +1315,7 @@
     renderChat();
 
     const sendChat = async () => {
+      if (chatSend.disabled) return;
       const text = chatInput.value.trim();
       if (!text) return;
       if (!aiApiKey) {
@@ -1252,16 +1323,16 @@
         chatStatus.textContent = t("noApiKeyChat");
         return;
       }
-      const chat = (a.chat || []).concat([{ role: "user", text }]);
-      a.chat = chat;
-      await updateArticle(a.id, { chat });
-      articles = await getArticles();
-      chatInput.value = "";
-      renderChat();
       chatSend.disabled = true;
-      chatStatus.className = "status muted";
-      chatStatus.textContent = t("aiThinking");
       try {
+        const chat = (a.chat || []).concat([{ role: "user", text }]);
+        a.chat = chat;
+        await updateArticle(a.id, { chat });
+        articles = await getArticles();
+        chatInput.value = "";
+        renderChat();
+        chatStatus.className = "status muted";
+        chatStatus.textContent = t("aiThinking");
         const resp = await chrome.runtime.sendMessage({
           type: "CHAT_ARTICLE",
           apiKey: aiApiKey,
@@ -1284,6 +1355,7 @@
         chatStatus.textContent = t("chatError") + err.message;
       } finally {
         chatSend.disabled = false;
+        renderLists();
         renderChat();
       }
     };
@@ -1301,10 +1373,8 @@
       fitDetailToLists();
     }
     if (!isFull) {
-      requestAnimationFrame(() => {
-        const box = detailView.querySelector(".detail-summary");
-        (box || detailView).scrollIntoView({ behavior: "smooth", block: "center" });
-      });
+      mainView.classList.add("hidden");
+      window.scrollTo({ top: 0, behavior: "instant" });
     }
   }
 
@@ -1320,7 +1390,8 @@
   addListBtn.addEventListener("click", onAddList);
   newListName.addEventListener("keydown", (e) => { if (e.key === "Enter") onAddList(); });
   exportBtn.addEventListener("click", exportExcel);
-  saveApiBtn.addEventListener("click", saveAiSettings);
+  saveApiBtn.addEventListener("click", () => saveAiSettings().catch(showStorageError));
+  aiToggle.addEventListener("change", () => setSetting("autoSummary", aiToggle.checked).catch(showStorageError));
   loadModelsBtn.addEventListener("click", () => {
     const key = apiKeyInput.value.trim() || aiApiKey;
     if (!key) {
@@ -1330,7 +1401,12 @@
     }
     loadGeminiModels(key).catch(() => {});
   });
-  aiSettingsToggle.addEventListener("click", () => aiSettings.classList.toggle("hidden"));
+  aiSettingsToggle.setAttribute("aria-controls", "aiSettings");
+  aiSettingsToggle.setAttribute("aria-expanded", "false");
+  aiSettingsToggle.addEventListener("click", () => {
+    const hidden = aiSettings.classList.toggle("hidden");
+    aiSettingsToggle.setAttribute("aria-expanded", String(!hidden));
+  });
   settingsBtn.addEventListener("click", () => {
     applyI18n();
     applyLangSelect();
@@ -1347,7 +1423,10 @@
   expandBtn.addEventListener("click", () => {
     chrome.tabs.create({ url: chrome.runtime.getURL("sidepanel.html") + "?mode=full" });
   });
-  backBtn.addEventListener("click", () => detailView.classList.add("hidden"));
+  backBtn.addEventListener("click", () => {
+    detailView.classList.add("hidden");
+    mainView.classList.remove("hidden");
+  });
 
   listSelect.addEventListener("change", async () => {
     activeListId = listSelect.value || null;
@@ -1367,12 +1446,16 @@
     render();
   });
 
+  function showStorageError(error) {
+    alert(t("errorPrefix") + error.message);
+  }
+
   loadAll().then(() => {
     if (isFull && articles.length) showDetail(articles[0]);
-  });
+  }).catch(showStorageError);
 
   // refresh when panel becomes visible
   document.addEventListener("visibilitychange", () => {
-    if (!document.hidden) loadAll();
+    if (!document.hidden) loadAll().catch(showStorageError);
   });
 })();

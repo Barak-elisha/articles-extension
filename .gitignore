@@ -1,1 +1,4 @@
 .DS_Store
+
+# Generated Chrome Web Store packages
+dist/

@@ -1,7 +1,7 @@
 function stripHtml(html) {
-  const div = document.createElement("div");
-  div.innerHTML = String(html || "");
-  return (div.textContent || "").trim();
+  const div = document.createElement("template");
+  div.innerHTML = sanitizeHtml(html);
+  return (div.content.textContent || "").trim();
 }
 
 function _t(k) {
@@ -179,8 +179,8 @@ function parseColor(c) {
 // Converts rich-text notes HTML into Excel runs (bold/italic/underline, size, color).
 function htmlToRuns(html) {
   const runs = [];
-  const wrap = document.createElement("div");
-  wrap.innerHTML = String(html || "");
+  const wrap = document.createElement("template");
+  wrap.innerHTML = sanitizeHtml(html);
   const htmlSizeToPt = { 1: 8, 2: 10, 3: 12, 4: 14, 5: 18, 6: 24, 7: 36 };
   const nl = () => { if (runs.length && runs[runs.length - 1].text !== "\n") runs.push({ text: "\n" }); };
   const walk = (node, style, list) => {
@@ -235,7 +235,7 @@ function htmlToRuns(html) {
       walk(el, st, list);
     });
   };
-  walk(wrap, {}, null);
+  walk(wrap.content, {}, null);
   return runs;
 }
 
@@ -377,20 +377,18 @@ function hasSchemaOrderIssues(xml) {
 }
 
 async function buildExcelBlob(articles, lists) {
-  const listName = {};
+  const listName = Object.create(null);
   lists.forEach((l) => { listName[l.id] = l.name; });
 
-  const rows = articles
-    .slice()
-    .sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0))
-    .map((a) => ({
+  const orderedArticles = articles.slice().sort((a, b) => (a.savedAt || 0) - (b.savedAt || 0));
+  const rows = orderedArticles.map((a) => ({
       [_t("excelList")]: listName[a.listId] || _t("noList"),
       [_t("excelTitle")]: a.title || "",
       [_t("excelSummary")]: a.summary || "",
       [_t("excelNotes")]: window.JSZip ? sanitizeHtml(a.notes) : stripHtml(a.notes),
       [_t("excelCitation")]: buildApaCitation(a),
       [_t("excelUrl")]: a.url || "",
-      [_t("excelSavedOn")]: a.savedAt ? new Date(a.savedAt).toLocaleString() : "",
+      [_t("excelSavedOn")]: a.savedAt ? new Date(a.savedAt).toLocaleString(window.I18N ? window.I18N.lang : "en") : "",
       [_t("excelChat")]: chatToText(a.chat),
     }));
 
@@ -399,13 +397,25 @@ async function buildExcelBlob(articles, lists) {
   styleSheet(allSheet);
   XLSX.utils.book_append_sheet(wb, allSheet, _t("excelAllArticles"));
 
-  // One sheet per list
+  const usedNames = new Set(wb.SheetNames.map(name => name.toLowerCase()));
+  const sheetName = (value) => {
+    let base = String(value || _t("excelListFallback")).replace(/[\\/:?*\[\]\u0000-\u001f]/g, " ").trim().replace(/^'+|'+$/g, "").trim() || _t("excelListFallback");
+    if (/^(?:__proto__|constructor|prototype|history)$/i.test(base)) base = "List " + base;
+    let name = base.slice(0, 31).replace(/'+$/g, ""), counter = 2;
+    while (usedNames.has(name.toLowerCase())) {
+      const suffix = " (" + counter++ + ")";
+      name = base.slice(0, 31 - suffix.length) + suffix;
+    }
+    usedNames.add(name.toLowerCase());
+    return name;
+  };
+  // One sheet per list; IDs keep identically named lists separate.
   lists.forEach((list) => {
-    const listRows = rows.filter((r) => r[_t("excelList")] === list.name);
+    const listRows = rows.filter((r, index) => orderedArticles[index].listId === list.id);
     if (!listRows.length) return;
     const sheet = XLSX.utils.json_to_sheet(listRows);
     styleSheet(sheet);
-    XLSX.utils.book_append_sheet(wb, sheet, String(list.name).slice(0, 30) || _t("excelListFallback"));
+    XLSX.utils.book_append_sheet(wb, sheet, sheetName(list.name));
   });
 
   const out = XLSX.write(wb, { bookType: "xlsx", type: "array" });
