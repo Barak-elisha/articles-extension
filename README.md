@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="Screenshots/New%201/article_saver_promo_feature_1400x560.png" alt="Article Saver — save, summarize, understand" width="100%" />
+</p>
+
 # Article Saver
 
 A Chrome extension (Manifest V3, `version 1.1.0`) for saving articles to lists, generating AI summaries, chatting with a Gemini model about each article, taking rich notes, and exporting everything to Excel.
@@ -16,12 +20,6 @@ The extension name, Chrome toolbar title and description are in English. On a fr
 Hebrew is available as an optional language in Settings. An existing saved language choice is preserved. Article text remains in its original language.
 
 The current release exports Excel workbooks; PDF export is not implemented.
-
-<p align="center">
-  <img src="Screenshots/New%201/article_saver_promo_feature_1400x560.png" alt="Article Saver overview: save articles, generate summaries, chat, and highlight key passages" width="800" />
-  <br />
-  <em>Article Saver — save, summarize, understand</em>
-</p>
 
 ## Features
 
