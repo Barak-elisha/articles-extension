@@ -183,6 +183,7 @@
   const aiToggle = $("#aiToggle");
   const aiSettingsToggle = $("#aiSettingsToggle");
   const aiSettings = $("#aiSettings");
+  const aiSetupGuide = $("#aiSetupGuide");
   const settingsBtn = $("#settingsBtn");
   const settingsView = $("#settingsView");
   const settingsBackBtn = $("#settingsBackBtn");
@@ -309,6 +310,7 @@
     const autoSummary = await getSetting("autoSummary");
     aiToggle.checked = !!(autoSummary && autoSummary.value);
     apiKeyInput.value = aiApiKey;
+    aiSetupGuide.open = !aiApiKey;
     populateModelSelect([aiModel], aiModel);
   }
 
@@ -602,7 +604,9 @@
             });
             if (sum && sum.ok) {
               article.summary = sum.summary;
-              await updateArticle(article.id, { summary: article.summary });
+              await updateArticle(article.id, { summary: article.summary, summaryHtml: null, summaryHtmlSource: null });
+              article.summaryHtml = null;
+              article.summaryHtmlSource = null;
             } else {
               throw new Error((sum && sum.error) || t("summaryError"));
             }
@@ -664,17 +668,24 @@
   }
 
   async function exportExcel() {
+    const exportListId = activeListId;
     const freshLists = await getLists();
     const freshArticles = await getArticles();
-    if (!freshArticles.length) {
+    const exportLists = exportListId ? freshLists.filter((list) => list.id === exportListId) : freshLists;
+    const exportArticles = exportListId ? freshArticles.filter((article) => article.listId === exportListId) : freshArticles;
+    const listFileName = exportListId && exportLists[0]
+      ? String(exportLists[0].name || "").replace(/[<>:"/\\|?*\u0000-\u001f]/g, "_").trim().replace(/[. ]+$/g, "")
+      : "";
+    const fileName = listFileName ? listFileName + ".xlsx" : t("excelFileName");
+    if (!exportArticles.length) {
       alert(t("noArticlesExport"));
       return;
     }
     try {
-      const blob = await buildExcelBlob(freshArticles, freshLists);
+      const blob = await buildExcelBlob(exportArticles, exportLists);
       if (window.showSaveFilePicker) {
         const handle = await window.showSaveFilePicker({
-          suggestedName: t("excelFileName"),
+          suggestedName: fileName,
           types: [{
             description: "Excel Workbook",
             accept: { "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet": [".xlsx"] },
@@ -688,7 +699,7 @@
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
         a.href = url;
-        a.download = t("excelFileName");
+        a.download = fileName;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 4000);
       }
@@ -705,6 +716,7 @@
     const model = modelSelect.value || "gemini-2.5-flash";
     await setSetting("geminiModel", model);
     aiModel = model;
+    aiSetupGuide.open = !aiApiKey;
     alert(t("aiSaved"));
   }
 
@@ -1097,9 +1109,24 @@
     summaryBox.appendChild(headRow);
     const sText = document.createElement("div");
     sText.className = "summary-text";
-    if (a.summary) sText.innerHTML = renderMarkdown(a.summary);
+    if (a.summary) sText.innerHTML = a.summaryHtml && a.summaryHtmlSource === a.summary
+      ? sanitizeHtml(a.summaryHtml) : renderMarkdown(a.summary);
     const sumStatus = document.createElement("div");
     sumStatus.className = "status muted";
+    summaryActions.prepend(createHighlighter(sText, {
+      label: t("aiSummary"),
+      onSave: async () => {
+        const html = sanitizeHtml(sText.innerHTML);
+        const updated = await updateArticle(a.id, { summaryHtml: html, summaryHtmlSource: a.summary });
+        if (!updated) throw new Error(t("highlightFailed"));
+        a.summaryHtml = html;
+        a.summaryHtmlSource = a.summary;
+        articles = await getArticles();
+        sumStatus.className = "status success";
+        sumStatus.textContent = t("highlightSaved");
+      },
+      onError: (message) => { sumStatus.className = "status error"; sumStatus.textContent = message; },
+    }));
     summaryBox.appendChild(sText);
     summaryBox.appendChild(sumStatus);
     const aiDisclosure = document.createElement("p");
@@ -1128,7 +1155,9 @@
         });
         if (!resp || !resp.ok) throw new Error((resp && resp.error) || t("summaryError"));
         a.summary = resp.summary;
-        await updateArticle(a.id, { summary: resp.summary });
+        await updateArticle(a.id, { summary: resp.summary, summaryHtml: null, summaryHtmlSource: null });
+        a.summaryHtml = null;
+        a.summaryHtmlSource = null;
         articles = await getArticles();
         renderLists();
         sText.innerHTML = renderMarkdown(resp.summary);
@@ -1243,6 +1272,11 @@
       }
     };
     notes.addEventListener("blur", saveNotes);
+    toolbar.appendChild(createHighlighter(notes, {
+      label: t("myNotes"),
+      onSave: saveNotes,
+      onError: (message) => { noteStatus.className = "status error"; noteStatus.textContent = message; },
+    }));
     notesBox.appendChild(nTitle);
     notesBox.appendChild(toolbar);
     notesBox.appendChild(notes);

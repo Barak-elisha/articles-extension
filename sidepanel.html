@@ -63,6 +63,14 @@
       <button id="aiSettingsToggle" data-icon="sparkles" class="btn btn-secondary btn-small" data-i18n="aiSettings">AI settings</button>
       <div id="aiSettings" class="hidden">
         <div class="label" data-i18n="aiSummaryLabel">AI summary (Google AI Studio)</div>
+        <details id="aiSetupGuide" class="ai-setup-guide" open>
+          <summary data-i18n="aiSetupTitle">How to get an API key</summary>
+          <ol>
+            <li><a href="https://aistudio.google.com/apikey" target="_blank" rel="noopener noreferrer" data-i18n="aiSetupOpen">Open Google AI Studio</a> <span data-i18n="aiSetupSignIn">and sign in with your Google account.</span></li>
+            <li data-i18n="aiSetupCreate">Copy an existing key, or choose Create API key and select or create a project.</li>
+            <li data-i18n="aiSetupSave">Paste the key below and choose Save key. Use Refresh models to see available models.</li>
+          </ol>
+        </details>
         <p class="section-description" data-i18n="aiKeyDisclosure">Your key is saved on this device. Refreshing models sends the key to Google. Clear and save to remove it.</p>
         <input id="apiKeyInput" data-i18n-label="apiKeyPlaceholder" aria-label="Google AI Studio API key" class="input" type="password" data-i18n-placeholder="apiKeyPlaceholder" placeholder="Enter the API key from Google AI Studio" />
         <label class="label" for="modelSelect" data-i18n="modelLabel">Model</label>
@@ -75,6 +83,11 @@
         <div id="modelStatus" class="status muted"></div>
         <button id="saveApiBtn" data-icon="key-round" class="btn btn-secondary btn-small" data-i18n="saveKey">Save key</button>
       </div>
+      <aside class="ai-usage-notice" aria-labelledby="aiUsageTitle">
+        <strong id="aiUsageTitle" data-i18n="aiUsageTitle">API usage and costs</strong>
+        <p data-i18n="aiUsageWarning">AI summaries and chat consume your Google API quota. If billing is enabled, charges may apply depending on your model and plan. Monitor usage in Google AI Studio.</p>
+        <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" data-i18n="aiUsageLearnMore">About usage and billing</a>
+      </aside>
     </section>
     <div class="footer">
       <div>Article Saver v1.1.0 · MIT License</div>
@@ -119,6 +132,7 @@
   <script src="storage.js"></script>
   <script src="i18n.js"></script>
   <script src="sanitize.js"></script>
+  <script src="highlighter.js"></script>
   <script src="excel-export.js"></script>
   <script src="sidepanel.js"></script>
 </body>

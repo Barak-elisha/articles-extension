@@ -18,14 +18,15 @@ Hebrew is available as an optional language in Settings. An existing saved langu
 The current release exports Excel workbooks; PDF export is not implemented.
 
 <p align="center">
-  <img src="Screenshots/Screenshot%202026-08-30%20at%200.00.39.png" alt="Full-window view: lists on the left, AI summary + notes + chat in the middle, and the full article text with highlights on the right" width="720" />
+  <img src="Screenshots/New%201/article_saver_promo_feature_1400x560.png" alt="Article Saver overview: save articles, generate summaries, chat, and highlight key passages" width="800" />
   <br />
-  <em>Full-window mode — lists · summary/notes/chat · full text with highlight markers</em>
+  <em>Article Saver — save, summarize, understand</em>
 </p>
 
 ## Features
 
 - **Side panel** opens on the right, and opens automatically when the extension icon is clicked.
+- **Soft blue and lavender background** with flowing waves across the side panel, full-page view, and settings; the backdrop stays fixed while content scrolls.
 - **List management** — create, rename and delete lists (deleting a list also deletes its articles).
 - **Filter by active list** — select a list in the "Save to list" dropdown (or "All lists") to show only that list's articles and hide the rest.
 - **Search your articles** — a search box filters articles by title, summary, notes, URL **and full article content**, with a live result count and the last-opened article kept highlighted.
@@ -35,15 +36,15 @@ The current release exports Excel workbooks; PDF export is not implemented.
 - **Edit the full article text** directly in the panel, with automatic saving, automatic cleanup of 2+ blank lines, and a color **highlight marker** (a palette of preset colors or a custom one) whose highlights are persisted.
 - **Auto-aligned full text** — the article text automatically aligns right for Hebrew/Arabic and left for English/Latin.
 - **Edit the article title** inline with a small pencil next to it.
-- **Full-window mode** — three equal columns (a third each) on a full screen: lists | summary+notes+chat | full text.
-- **Excel export** — an "All articles" sheet plus one sheet per list, with rich text, clickable links, an APA citation and an AI-chat column.
+- **Full-window mode** — a responsive workspace on a full screen: lists | summary+notes+chat | full text.
+- **Excel export** — an "All articles" sheet plus one sheet per list, with pale green headers, embedded green icons, rich text, clickable links, an APA citation and an AI-chat column.
 - **AI settings** — API key from Google AI Studio; when you click Refresh models the extension fetches compatible Gemini models from Google's API and lets you pick one from a dropdown (default: `gemini-2.5-flash`).
 - **Interface language** — switch between English and Hebrew in Settings (English is the default; the choice is persisted and also drives the AI output language and the Excel headers).
 
 <p align="center">
-  <img src="Screenshots/Screenshot%202026-08-30%20at%2023.29.17.png" alt="Side panel in English: article list and the Export to Excel button" width="340" />
+  <img src="Screenshots/New%201/article_saver_one_click_summary_EXACT_1280x800.png" alt="Saving an article from Chrome with an optional AI summary" width="800" />
   <br />
-  <em>The side panel in English, with the article list and the Export to Excel button</em>
+  <em>Save an article to your library and optionally generate an AI summary</em>
 </p>
 
 ## Prerequisites & Compatibility
@@ -64,7 +65,7 @@ The current release exports Excel workbooks; PDF export is not implemented.
 2. Choose an active list and click **"Save current article"**.
 3. (Optional) In Settings → "AI settings", paste an **API key** from Google AI Studio and click **Save key**. Click **Refresh models** to query Google for compatible generation models; choose a model and save. Saving a key or opening the panel does not make a network request.
 4. (Optional) In Settings → "Interface language", choose **English** or **Hebrew** (default: English).
-5. Click **"Export to Excel"** to save the workbook (`articles.xlsx` by default; the filename is localized when Hebrew is selected).
+5. Click **"Export to Excel"** to export only the selected list, using its name as the filename (`List name.xlsx`; characters unsupported in filenames are replaced with underscores). Choose **"All lists"** to export the entire library (`articles.xlsx` by default; the filename is localized when Hebrew is selected).
 
 ### Viewing and handling an article
 
@@ -72,6 +73,7 @@ The current release exports Excel workbooks; PDF export is not implemented.
 - Article rows include **Open source** and **Delete article** icon buttons.
 - The active article is highlighted in blue.
 - Summaries and chat messages render Markdown (headings, lists, bold, italic, code and links). Notes use the rich-text editor and its formatting toolbar.
+- Select text in **AI summary** or **Notes**, click the small marker button and choose a preset or custom color. The eraser removes highlighting from the selection. Highlights save automatically and reappear when the article is reopened. Generating a new summary clears the previous summary's highlights.
 - **Search within the full text** — a search bar above the article text highlights every match, shows a running count, and lets you jump between matches with ▲/▼.
 - **Edit the title** — click the small pencil (✎) next to the title, type, then press Enter (or click away) to save; Esc cancels.
 - The full text is cleaned automatically on save: 2+ consecutive blank lines collapse to one, and trailing spaces/newlines are removed.
@@ -80,8 +82,14 @@ The current release exports Excel workbooks; PDF export is not implemented.
 
 ### Full-window mode
 
+<p align="center">
+  <img src="Screenshots/New%201/article_saver_full_window_1280x800.png" alt="Full-window reading workspace with lists, summary, notes, and article text" width="800" />
+  <br />
+  <em>Full-window reading workspace — feature illustration</em>
+</p>
+
 - The **Open in full size** button opens `sidepanel.html?mode=full` in a new tab of the same window.
-- Three equal-width columns: **My lists** | **AI summary + notes + chat** | **Full text**.
+- On wide screens: **My lists** | **AI summary + notes + chat** | **Full text**. On narrower screens, article details stack vertically.
 - The page height follows the lists column (the page ends where the lists end); panels size to their content and scroll internally only when space is tight. The chat box stretches to the end of the page.
 
 ### AI
@@ -98,9 +106,9 @@ An API key is required only for AI. The "Include an AI summary" checkbox is off 
 **Model dropdown** — **Refresh models** explicitly calls Google's models endpoint using the key in a request header, follows pagination, and lists unique `gemini-*` models supporting `generateContent`. The default is `gemini-2.5-flash`; previously saved retired Gemini 2.0 selections resolve to that default. The selected model is stored as `geminiModel`.
 
 <p align="center">
-  <img src="Screenshots/Screenshot%202026-08-29%20at%2023.48.11.png" alt="Chat answering that the text is a review article, grounded in the article content" width="340" />
+  <img src="Screenshots/New%201/article_saver_chat_with_content_1280x800.png" alt="Article Saver chat with a saved article and AI responses" width="800" />
   <br />
-  <em>The chat stays grounded in the article — e.g. clarifying that the text is a review article rather than inventing details</em>
+  <em>Ask questions about your saved articles</em>
 </p>
 
 ### Interface language (i18n)
@@ -111,11 +119,6 @@ To change the language, open **Settings → Interface language** and select **En
 
 After updating an unpacked extension, click **Reload** on its card in `chrome://extensions` and reopen the panel to refresh its name, description and interface. If an existing installation opens in Hebrew, select English in Settings; reloading preserves saved preferences.
 
-<p align="center">
-  <img src="Screenshots/Screenshot%202026-08-29%20at%2023.41.25.png" alt="The extension interface in Hebrew with RTL layout" width="340" />
-  <br />
-  <em>Optional Hebrew interface with full RTL alignment</em>
-</p>
 
 ### Security & API key
 
@@ -143,18 +146,26 @@ Because article content sent to Gemini is untrusted and could contain hidden ins
 
 ### Excel
 
+<p align="center">
+  <img src="Screenshots/New%201/article_saver_export_excel_1280x800.png" alt="Excel export with List, Title, AI summary, Notes, APA citation, URL, Saved on, and Chat with AI columns" width="800" />
+  <br />
+  <em>Export your selected list, or choose All lists to export the library</em>
+</p>
+
 Columns in the "All articles" sheet (and in the per-list sheets):
 
 | Column | Source |
 | --- | --- |
 | List | List name |
 | Title | Article title |
-| AI summary | `a.summary` (Markdown → rich text) |
+| AI summary | Current `a.summaryHtml` when available; otherwise `a.summary` (Markdown → rich text) |
 | Notes | `a.notes` (HTML → runs with bold/italic/underline/color/size) |
 | APA citation | `buildApaCitation` — APA 7th edition webpage format: `Title. (n.d.). Site Name. Retrieved Month D, YYYY, from URL` (retrieval date uses the saved date; `(n.d.)` when no publication date) |
 | URL | active hyperlink |
-| Saved at | `a.savedAt` |
-| Chat with AI | `a.chat` formatted as `Me: …` / `AI: …` (with localized speaker labels when Hebrew is selected), preserving markdown formatting markers (bold, italic, lists) |
+| Saved on | `a.savedAt` → numeric Excel date/time, displayed as `dd/mm/yyyy hh:mm` |
+| Chat with AI | `a.chat` formatted as `Me: …` / `AI: …` (with localized speaker labels when Hebrew is selected), with rich-text bold/italic, real bullets, paragraph breaks, and bold colored speaker labels (no raw Markdown markers) |
+
+Excel exports store Saved on as a numeric date/time (`dd/mm/yyyy hh:mm`), suitable for sorting and date formulas. Highlights from current AI summaries and Notes are underlined in the main sheets. Because Excel rich text does not support a background fill for part of a cell, an additional Highlights sheet stores each marked passage in a separate editable cell with its original background color. The sheet is omitted when nothing is highlighted. Regenerated summaries do not reuse stale highlights.
 
 The export pipeline:
 - `buildExcelBlob` — builds the workbook with `xlsx-js-style` (styles, text wrapping, column widths, one sheet per list).
@@ -181,7 +192,7 @@ The export pipeline:
 | `SECURITY.md` | How to report security vulnerabilities privately |
 | `CONTRIBUTING.md` | Contribution guidelines (local-first, no unneeded deps) |
 
-Scripts are loaded in `sidepanel.html` in this order (it matters): `jszip` → `cpexcel` → `xlsx-js-style` → `storage` → `i18n` → `sanitize` → `excel-export` → `sidepanel`.
+Scripts are loaded in `sidepanel.html` in this order (it matters): `jszip` → `cpexcel` → `xlsx-js-style` → `storage` → `i18n` → `sanitize` → `highlighter` → `excel-export` → `sidepanel`.
 
 ### Messaging between the panel and the background
 

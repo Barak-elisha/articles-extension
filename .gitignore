@@ -2,3 +2,13 @@
 
 # Generated Chrome Web Store packages
 dist/
+
+# Keep only the screenshots embedded in README.md.
+/Screenshots/*
+!/Screenshots/New 1/
+/Screenshots/New 1/*
+!/Screenshots/New 1/article_saver_promo_feature_1400x560.png
+!/Screenshots/New 1/article_saver_one_click_summary_EXACT_1280x800.png
+!/Screenshots/New 1/article_saver_full_window_1280x800.png
+!/Screenshots/New 1/article_saver_chat_with_content_1280x800.png
+!/Screenshots/New 1/article_saver_export_excel_1280x800.png

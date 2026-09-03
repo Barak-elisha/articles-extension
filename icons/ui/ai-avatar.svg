@@ -1,0 +1,24 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" viewBox="0 0 48 48" fill="none">
+  <defs>
+    <linearGradient id="shell" x1="14" y1="13" x2="35" y2="37" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F6F8FF"/>
+      <stop offset="1" stop-color="#B7C7FF"/>
+    </linearGradient>
+    <linearGradient id="halo" x1="10" y1="8" x2="38" y2="42" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F7F9FF"/>
+      <stop offset="1" stop-color="#E0E6FF"/>
+    </linearGradient>
+  </defs>
+  <circle cx="24" cy="24" r="23" fill="white" stroke="#E2E8F6" stroke-width="2"/>
+  <circle cx="24" cy="25" r="18" fill="url(#halo)"/>
+  <path d="M24 12v5" stroke="#7C91EF" stroke-width="2.5" stroke-linecap="round"/>
+  <circle cx="24" cy="10.5" r="2.5" fill="#315CF5"/>
+  <path d="M16 35c1.5 4 14.5 4 16 0" fill="#AEBEFF"/>
+  <rect x="9.5" y="23" width="5" height="9" rx="2.5" fill="#A9BBFF"/>
+  <rect x="33.5" y="23" width="5" height="9" rx="2.5" fill="#A9BBFF"/>
+  <rect x="12" y="16" width="24" height="21" rx="9" fill="url(#shell)" stroke="#A9BAF5"/>
+  <rect x="14.5" y="21" width="19" height="12" rx="5" fill="#14243F"/>
+  <rect x="18" y="24" width="3" height="5" rx="1.5" fill="#8AE8FF"/>
+  <rect x="27" y="24" width="3" height="5" rx="1.5" fill="#8AE8FF"/>
+  <path d="M16 19.5c2-1.5 5-2 8-2" stroke="white" stroke-width="1.5" stroke-linecap="round"/>
+</svg>
