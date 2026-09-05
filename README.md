@@ -3,7 +3,7 @@
 </p>
 
 # Article Saver
-[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/<EXTENSION_ID>?label=Chrome%20Web%20Store&logo=googlechrome&color=blue)](https://chromewebstore.google.com/detail/article-saver/<EXTENSION_ID>)
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/<EXTENSION_ID>?logo=googlechrome&color=blue)](https://chromewebstore.google.com/detail/article-saver/<coagndppgjemdfaakejdclhhgmjppdlf>)
 
 A Chrome extension (Manifest V3, `version 1.1.0`) for saving articles to lists, generating AI summaries, chatting with a Gemini model about each article, taking rich notes, and exporting everything to Excel.
 
@@ -53,10 +53,15 @@ The current release exports Excel workbooks; PDF export is not implemented.
 
 ## Installation
 
-1. Open `chrome://extensions` in Chrome.
-2. Enable **Developer mode**.
-3. Click **"Load unpacked"** and choose this folder.
-4. Click the extension icon in the toolbar to open the panel.
+### Recommended: Install from Chrome Web Store
+Install Article Saver directly from the [Chrome Web Store](https://chromewebstore.google.com/detail/article-saver/coagndppgjemdfaakejdclhhgmjppdlf) with automatic updates.
+
+### For Developers (Manual / Unpacked)
+1. Clone or download this repository.
+2. Open `chrome://extensions` in Chrome.
+3. Enable **Developer mode**.
+4. Click **Load unpacked** and select this directory.
+
 
 ## Usage
 
@@ -289,6 +294,7 @@ By using this extension you acknowledge that:
 ## Changelog
 
 ### v1.1.0
+- Also available for one-click installation on the Chrome Web Store: [https://chromewebstore.google.com/detail/article-saver/coagndppgjemdfaakejdclhhgmjppdlf]
 - Refreshed interface and icons, with English metadata and defaults.
 - Hardened article/notes rendering and fixed Excel names, duplicate saves and list deletion.
 - Optional AI disclosure, updated Gemini default and bounded network requests.
