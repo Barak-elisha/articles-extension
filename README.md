@@ -3,6 +3,7 @@
 </p>
 
 # Article Saver
+[![Chrome Web Store](https://img.shields.io/chrome-web-store/v/<EXTENSION_ID>?label=Chrome%20Web%20Store&logo=googlechrome&color=blue)](https://chromewebstore.google.com/detail/article-saver/<EXTENSION_ID>)
 
 A Chrome extension (Manifest V3, `version 1.1.0`) for saving articles to lists, generating AI summaries, chatting with a Gemini model about each article, taking rich notes, and exporting everything to Excel.
 
