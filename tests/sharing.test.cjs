@@ -390,6 +390,20 @@ test('MergeService: collection merge never updates a matching article in another
   assert.notEqual(result.articles[0].id, 'other');
 });
 
+test('MergeService: imported collection can be added to a different existing list', () => {
+  const ctx = createContext();
+  const targetList = { id:'reading_list', name:'My reading list', collectionId:'local_collection' };
+  const importedList = { name:'Shared research', collectionId:'shared_collection' };
+  const incoming = { id:'incoming', title:'Imported', content:'Shared', url:'https://x.com/shared', savedAt:3000, summary:'Imported summary', summaryHtml:'', summaryHtmlSource:'', chat:[{role:'assistant',text:'Imported chat'}], tags:[], highlights:[] };
+  const result = ctx.MergeService.mergeCollection(targetList, importedList, [incoming], [], {preferImportedSummary:true});
+  assert.equal(result.list.id, 'reading_list');
+  assert.equal(result.list.name, 'My reading list');
+  assert.equal(result.list.collectionId, 'local_collection');
+  assert.equal(result.articles[0].listId, 'reading_list');
+  assert.equal(result.articles[0].summary, 'Imported summary');
+  assert.equal(result.articles[0].chat[0].text, 'Imported chat');
+});
+
 test('MergeService: createNewCollectionFromPackage creates new list and articles', () => {
   const ctx = createContext();
   const importedList = { name: 'New Pack', collectionId: 'col_new', createdAt: Date.now(), description: 'Desc' };

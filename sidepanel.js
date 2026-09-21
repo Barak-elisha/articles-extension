@@ -2386,18 +2386,31 @@
   function renderImportPreview(preview) {
     const t = (key, params) => window.I18N.t(key, params);
     const isNew = preview.isNewCollection;
+    const matchingList = lists.find((list) => list.collectionId === preview.collectionId) || null;
+    const selectedTargetId = matchingList?.id || "__new__";
+    const listOptions = lists.map((list) =>
+      `<option value="${escapeHtml(list.id)}" ${list.id === selectedTargetId ? "selected" : ""}>${escapeHtml(list.name)}</option>`
+    ).join("");
 
     let html = `
       <div class="import-preview">
         <div class="transfer-hero">
           <div class="transfer-hero-icon" aria-hidden="true">↓</div>
-          <div><div class="transfer-hero-title">${escapeHtml(preview.collectionName)}</div><div class="transfer-hero-subtitle">${isNew ? t("addToMyLibrary") : t("importUpdateExistingList")}</div></div>
+          <div><div class="transfer-hero-title">${escapeHtml(preview.collectionName)}</div><div class="transfer-hero-subtitle">${t("importChooseDestination")}</div></div>
         </div>
         ${renderTransferMetrics(pendingImportPackage)}
-        <div class="preview-section import-name-section">
-          <label class="label" for="importCollectionName">${t("importListNameLabel")}</label>
-          <input id="importCollectionName" class="input" type="text" maxlength="120" />
-          <div class="field-help">${t("importListNameHelp")}</div>
+        <div class="preview-section import-destination-section">
+          <label class="label" for="importTargetList">${t("importDestinationLabel")}</label>
+          <select id="importTargetList" class="select">
+            <option value="__new__" ${selectedTargetId === "__new__" ? "selected" : ""}>${t("createNewListOption")}</option>
+            ${listOptions}
+          </select>
+          <div class="field-help">${t("importDestinationHelp")}</div>
+          <div id="importCollectionNameWrap" class="import-new-list-fields ${selectedTargetId === "__new__" ? "" : "hidden"}">
+            <label class="label" for="importCollectionName">${t("importListNameLabel")}</label>
+            <input id="importCollectionName" class="input" type="text" maxlength="120" />
+            <div class="field-help">${t("importListNameHelp")}</div>
+          </div>
         </div>
         <div class="preview-section">
           <div class="preview-title">${escapeHtml(isNew ? t("importPreviewNewCollection", { collectionName: preview.collectionName }) : t("importPreviewExistingCollection", { collectionName: preview.collectionName }))}</div>
@@ -2434,33 +2447,40 @@
     applyI18n();
     const collectionNameInput = document.getElementById("importCollectionName");
     if (collectionNameInput) collectionNameInput.value = preview.collectionName || "";
+    const targetListSelect = document.getElementById("importTargetList");
+    const collectionNameWrap = document.getElementById("importCollectionNameWrap");
+    const updateImportAction = () => {
+      const creatingList = targetListSelect.value === "__new__";
+      collectionNameWrap.classList.toggle("hidden", !creatingList);
+      importConfirmBtn.textContent = t(creatingList ? "importCreateAndAdd" : "importAddToExisting");
+    };
+    targetListSelect.addEventListener("change", updateImportAction);
+    updateImportAction();
 
-    if (isNew) {
-      importConfirmBtn.classList.remove("hidden");
-      importMergeBtn.classList.add("hidden");
-      importConfirmBtn.textContent = t("addToMyLibrary");
-    } else {
-      importConfirmBtn.classList.remove("hidden");
-      importMergeBtn.classList.remove("hidden");
-      importConfirmBtn.textContent = t("importCreateNewList");
-      importMergeBtn.textContent = t("importUpdateExistingList");
-    }
+    importConfirmBtn.classList.remove("hidden");
+    importMergeBtn.classList.add("hidden");
   }
 
   async function handleImportConfirm() {
     if (!pendingImportPackage) return;
+    const targetListId = document.getElementById("importTargetList")?.value || "__new__";
     const requestedListName = document.getElementById("importCollectionName")?.value.trim() || "";
-    if (!requestedListName) {
+    if (targetListId === "__new__" && !requestedListName) {
       showToast(t("enterListName"), "error");
       document.getElementById("importCollectionName")?.focus();
       return;
     }
     try {
       setButtonBusy(importConfirmBtn, true, t("importingNow"));
-      await performImport(pendingImportPackage, false, requestedListName);
+      await performImport(
+        pendingImportPackage,
+        targetListId !== "__new__",
+        requestedListName,
+        targetListId === "__new__" ? "" : targetListId
+      );
       closeImportModal();
       await loadAll();
-      showToast(t("importSuccess"), "success");
+      showToast(t(targetListId === "__new__" ? "importSuccess" : "importExistingSuccess"), "success");
     } catch (err) {
       console.error("Collection import failed", err);
       showToast(t("importFailedFriendly"), "error");
@@ -2492,28 +2512,31 @@
     importConfirmAction = null;
   }
 
-  async function performImport(packageData, isMerge, requestedListName = "") {
+  async function performImport(packageData, isMerge, requestedListName = "", targetListId = "") {
     const manifest = packageData.manifest;
     const collectionData = packageData.collection;
     const articlesData = packageData.articles;
 
     const existingList = await getListByCollectionId(manifest.collectionId);
+    const selectedList = targetListId
+      ? (await getLists()).find((list) => list.id === targetListId) || null
+      : null;
+    if (targetListId && !selectedList) throw new Error("The destination list no longer exists");
+    const mergeTarget = selectedList || (isMerge ? existingList : null);
     const allLocalArticles = await getArticles();
-    const localArticles = existingList
-      ? allLocalArticles.filter((article) => article.listId === existingList.id)
+    const localArticles = mergeTarget
+      ? allLocalArticles.filter((article) => article.listId === mergeTarget.id)
       : [];
 
-    if (isMerge && existingList) {
-      const result = window.MergeService.mergeCollection(existingList, collectionData, articlesData, localArticles, {
+    if (mergeTarget) {
+      const result = window.MergeService.mergeCollection(mergeTarget, collectionData, articlesData, localArticles, {
         preferLocalContent: true,
         preferImportedSummary: true,
       });
 
-      await updateList(existingList.id, { name: result.list.name });
-
       const updates = result.articles.filter((article) => localArticles.some((local) => local.id === article.id));
       const additions = result.articles.filter((article) => !localArticles.some((local) => local.id === article.id));
-      await applyArticleImport(existingList.id, updates, additions);
+      await applyArticleImport(mergeTarget.id, updates, additions);
     } else {
       const newList = await addList(requestedListName || collectionData.name);
       try {

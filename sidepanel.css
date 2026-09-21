@@ -2364,7 +2364,8 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   padding: 14px;
 }
 
-.import-name-section {
+.import-name-section,
+.import-destination-section {
   padding: 15px !important;
   border-color: #b9cdfd !important;
   background: linear-gradient(135deg, #fbfdff, #f5f8ff);
@@ -2372,6 +2373,7 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 }
 
 .import-name-section .label,
+.import-destination-section .label,
 #newListNameContainer .label {
   display: block;
   margin-bottom: 8px;
@@ -2380,11 +2382,25 @@ button:disabled { opacity: .5; cursor: not-allowed; }
 }
 
 .import-name-section .input,
+.import-destination-section .select,
+.import-destination-section .input,
 #newListNameContainer .input {
   min-height: 43px;
   border-color: #afc4f7;
   background: #fff;
   font-weight: 650;
+}
+
+.import-new-list-fields {
+  margin-top: 13px;
+  padding-top: 13px;
+  border-top: 1px solid #dce5f5;
+}
+
+.import-destination-section .select {
+  width: 100%;
+  margin: 0;
+  color: #253650;
 }
 
 .modal-transfer > .modal-actions {
