@@ -147,9 +147,13 @@
     <div class="modal modal-share" role="dialog" aria-modal="true" aria-labelledby="shareCollectionTitle">
       <div class="share-sheet">
         <div class="share-header">
-          <h2 class="share-title" id="shareCollectionTitle" data-i18n="shareCollectionTitle">Share Collection</h2>
-          <p class="share-name" id="shareCollectionName"></p>
-          <p class="share-stats" id="shareCollectionStats"></p>
+          <div class="share-kind-icon" data-icon="folder" aria-hidden="true"></div>
+          <div class="share-header-copy">
+            <span class="share-kicker" data-i18n="shareCollectionKicker">A list from your library</span>
+            <h2 class="share-title" id="shareCollectionTitle" data-i18n="shareCollectionTitle">Share Collection</h2>
+            <p class="share-name" id="shareCollectionName"></p>
+            <p class="share-stats" id="shareCollectionStats"></p>
+          </div>
         </div>
 
         <div class="share-options-section" id="shareCollectionOptions">
@@ -173,8 +177,8 @@
         <p class="share-privacy-notice" data-i18n="sharePrivacyNotice"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg><span>Shared directly from your device. Article Saver never receives this content.</span></p>
 
         <div class="share-actions">
-          <button type="button" id="shareNativeBtn" class="btn btn-primary share-primary-action" data-i18n="shareTitle">Share</button>
-          <button type="button" id="shareDownloadBtn" class="btn btn-secondary" data-i18n="saveCopyLabel">Save a copy</button>
+          <button type="button" id="shareNativeBtn" class="btn btn-primary share-primary-action" data-icon="send" data-i18n="sharePrepareAction">Prepare to share</button>
+          <button type="button" id="shareDownloadBtn" class="btn btn-secondary" data-icon="download" data-i18n="saveCopyLabel">Save a copy</button>
           <button type="button" id="shareCancelBtn" class="btn btn-quiet" data-i18n="cancelButton">Cancel</button>
         </div>
       </div>
@@ -185,9 +189,13 @@
     <div class="modal modal-share" role="dialog" aria-modal="true" aria-labelledby="shareArticleTitle">
       <div class="share-sheet">
         <div class="share-header">
-          <h2 class="share-title" id="shareArticleTitle" data-i18n="shareArticleTitle">Share Article</h2>
-          <p class="share-name" id="shareArticleName"></p>
-          <p class="share-stats" id="shareArticleStats"></p>
+          <div class="share-kind-icon" data-icon="bookmark-plus" aria-hidden="true"></div>
+          <div class="share-header-copy">
+            <span class="share-kicker" data-i18n="shareArticleKicker">An article from your library</span>
+            <h2 class="share-title" id="shareArticleTitle" data-i18n="shareArticleTitle">Share Article</h2>
+            <p class="share-name" id="shareArticleName"></p>
+            <p class="share-stats" id="shareArticleStats"></p>
+          </div>
         </div>
 
         <div class="share-options-section" id="shareArticleOptions">
@@ -211,8 +219,8 @@
         <p class="share-privacy-notice" data-i18n="sharePrivacyNotice"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg><span>Shared directly from your device. Article Saver never receives this content.</span></p>
 
         <div class="share-actions">
-          <button type="button" id="shareArticleNativeBtn" class="btn btn-primary share-primary-action" data-i18n="shareTitle">Share</button>
-          <button type="button" id="shareArticleDownloadBtn" class="btn btn-secondary" data-i18n="saveCopyLabel">Save a copy</button>
+          <button type="button" id="shareArticleNativeBtn" class="btn btn-primary share-primary-action" data-icon="send" data-i18n="sharePrepareAction">Prepare to share</button>
+          <button type="button" id="shareArticleDownloadBtn" class="btn btn-secondary" data-icon="download" data-i18n="saveCopyLabel">Save a copy</button>
           <button type="button" id="shareArticleCancelBtn" class="btn btn-quiet" data-i18n="cancelButton">Cancel</button>
         </div>
       </div>
