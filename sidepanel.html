@@ -222,17 +222,21 @@
   <div id="shareReadyModal" class="modal-overlay hidden">
     <div class="modal modal-share" role="dialog" aria-modal="true" aria-labelledby="shareReadyTitle">
       <div class="share-sheet">
-        <div class="share-header">
-          <h2 class="share-title" id="shareReadyTitle" data-i18n="shareReadyTitleArticle">Send the article by email</h2>
+        <div class="share-ready-hero">
+          <div class="share-ready-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M20 7 9 18l-5-5"/><path d="M16 3h3a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h7"/></svg>
+          </div>
+          <div>
+            <h2 class="share-title" id="shareReadyTitle" data-i18n="shareReadyTitleArticle">Your file is ready</h2>
+            <p class="share-ready-subtitle" data-i18n="shareReadySubtitle">Open a new email with a friendly message already prepared for you.</p>
+          </div>
         </div>
         <div class="share-ready">
-          <ol class="share-ready-steps">
-            <li data-i18n="shareReadyStep1"></li>
-            <li data-i18n="shareReadyStep2"></li>
-            <li data-i18n="shareReadyStep3"></li>
-            <li data-i18n="shareReadyStep4"></li>
-          </ol>
-          <p class="share-ready-file" id="shareReadyFile"></p>
+          <div class="share-ready-file-row">
+            <span class="share-ready-file-icon" aria-hidden="true">↗</span>
+            <p class="share-ready-file" id="shareReadyFile"></p>
+          </div>
+          <div class="share-ready-tip" data-i18n="shareReadyTip">When the email opens, attach the saved file and choose who to send it to.</div>
           <div class="share-ready-actions">
             <button type="button" id="shareReadyEmailBtn" class="btn btn-primary share-ready-action" data-i18n="openMail">Open email</button>
             <button type="button" id="shareReadyCopyBtn" class="btn btn-secondary share-ready-action" data-i18n="copyMessage">Copy message</button>
@@ -275,7 +279,7 @@
   </div>
 
   <div id="importModal" class="modal-overlay hidden">
-    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="importPreviewTitle">
+    <div class="modal modal-transfer" role="dialog" aria-modal="true" aria-labelledby="importPreviewTitle">
       <div class="modal-title" id="importPreviewTitle" data-i18n="importPreviewTitle">Open shared file</div>
       <div class="modal-body" id="importModalBody"></div>
       <div class="modal-actions">

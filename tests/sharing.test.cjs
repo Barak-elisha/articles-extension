@@ -508,6 +508,53 @@ test('PackageService: getFileName sanitizes filename', () => {
   assert.ok(name.endsWith('.articlesaver'));
 });
 
+test('PackageService: selectArticlesForList returns every list for All lists', () => {
+  const ctx = createContext();
+  const articles = [
+    { id: 'art_1', listId: 'list_1' },
+    { id: 'art_2', listId: 'list_2' },
+    { id: 'art_3', listId: 'list_1' },
+  ];
+
+  assert.deepEqual(
+    Array.from(ctx.PackageService.selectArticlesForList(articles, null), (article) => article.id),
+    ['art_1', 'art_2', 'art_3'],
+  );
+  assert.deepEqual(
+    Array.from(ctx.PackageService.selectArticlesForList(articles, ''), (article) => article.id),
+    ['art_1', 'art_2', 'art_3'],
+  );
+});
+
+test('PackageService: selectArticlesForList limits a pack to the selected list', () => {
+  const ctx = createContext();
+  const articles = [
+    { id: 'art_1', listId: 'list_1' },
+    { id: 'art_2', listId: 'list_2' },
+    { id: 'art_3', listId: 'list_1' },
+  ];
+
+  assert.deepEqual(
+    Array.from(ctx.PackageService.selectArticlesForList(articles, 'list_1'), (article) => article.id),
+    ['art_1', 'art_3'],
+  );
+});
+
+test('PackageService: selected pack articles are not replaced by the current list scope', () => {
+  const ctx = createContext();
+  const allArticles = [
+    { id: 'art_1', listId: 'list_1' },
+    { id: 'art_2', listId: 'list_2' },
+    { id: 'art_3', listId: 'list_1' },
+  ];
+  const selectedAcrossLists = [allArticles[0], allArticles[1]];
+
+  assert.deepEqual(
+    Array.from(ctx.PackageService.resolveResearchPackArticles(selectedAcrossLists, allArticles, 'list_1'), (article) => article.id),
+    ['art_1', 'art_2'],
+  );
+});
+
 test('PackageService: buildPackage supports research-pack type', () => {
   const ctx = createContext();
   const list = { id: 'list_1', name: 'Research Pack', collectionId: 'col_pack', createdAt: Date.now(), description: 'Pack desc' };

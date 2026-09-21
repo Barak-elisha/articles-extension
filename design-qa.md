@@ -1,0 +1,31 @@
+# Design QA — sharing and import flows
+
+Date: 2026-09-21
+
+## Source references
+
+- `codex-clipboard-e12d061c-278f-4f72-bf7e-e888fc96cc24.png` — collection sharing dialog
+- `codex-clipboard-765d65a6-f31c-4fb5-99cf-e1af9aabdbca.png` — email handoff dialog
+- `codex-clipboard-293db774-995b-4964-9d35-0151d9738728.png` — side-panel notification
+
+## Rendered implementation
+
+The implementation was rendered in the Codex in-app browser at a 390 × 820 side-panel viewport using `tests/design-qa.html` and the production `sidepanel.css` classes.
+
+| State | Result | Checks |
+| --- | --- | --- |
+| Email handoff | Passed | Clear completion state, friendly wording, visible filename, one primary action, no clipping in RTL |
+| Collection import | Passed | Editable list name, readable content summary, clear new-list and update actions, privacy note, no clipping in RTL |
+| Success notification | Passed | Bottom-centered layout, readable message, clear status icon and close control, no edge clipping |
+
+## Resolved issues
+
+- P1: The selected articles were discarded before the Research Pack step. The selected array is now passed through explicitly.
+- P1: **All lists** could use stale internal list state. The pack scope now follows the visible list selector.
+- P1: “Add as a new list” did not allow naming the new list. Import now requires an editable list name.
+- P2: Sharing and email copy was technical and hard to scan. It now uses shorter, friendlier instructions and a dynamic email subject.
+- P2: Notifications were narrow, edge-aligned and easy to clip. They are now centered, bounded to the panel width and limited to one at a time.
+
+No open P0, P1 or P2 visual issues remain in the reviewed states.
+
+final result: passed

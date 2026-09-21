@@ -354,6 +354,17 @@
     };
   }
 
+  function selectArticlesForList(allArticles, listId) {
+    const source = Array.isArray(allArticles) ? allArticles : [];
+    if (!listId) return source.slice();
+    return source.filter((article) => article.listId === listId);
+  }
+
+  function resolveResearchPackArticles(preSelectedArticles, allArticles, listId) {
+    if (Array.isArray(preSelectedArticles)) return preSelectedArticles.slice();
+    return selectArticlesForList(allArticles, listId);
+  }
+
   window.PackageService = {
     PACKAGE_SCHEMA_VERSION,
     PACKAGE_FORMAT,
@@ -367,6 +378,8 @@
     parsePackageFile,
     parsePackageBlob,
     createImportPreview,
+    selectArticlesForList,
+    resolveResearchPackArticles,
     createManifest,
     createCollectionData,
     createArticleData,

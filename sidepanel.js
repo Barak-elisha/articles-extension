@@ -246,6 +246,7 @@
   const shareReadyFeedback = $("#shareReadyModal [data-feedback]");
   let shareReadyInstructions = "";
   let shareReadyFileName = "";
+  let shareReadyItemName = "";
   let shareReadyFeedbackTimer = null;
 
   const researchPackModal = $("#researchPackModal");
@@ -1663,7 +1664,7 @@
 
       if (result.success) {
         if (result.method === "download") {
-          showShareReadyModal("collection", result.instructions, result.fileName);
+          showShareReadyModal("collection", result.instructions, result.fileName, list.name);
         } else {
           showToast(t("shareComplete"), "success");
         }
@@ -1671,7 +1672,8 @@
         showToast(t("shareFailed"), "error");
       }
     } catch (err) {
-      showToast(t("shareFailed") + ": " + err.message, "error");
+      console.error("Collection share failed", err);
+      showToast(t("shareFailedFriendly"), "error");
     } finally {
       setButtonBusy(shareNativeBtn, false);
       setButtonBusy(shareDownloadBtn, false);
@@ -1786,7 +1788,7 @@
 
       if (result.success) {
         if (result.method === "download") {
-          showShareReadyModal("article", result.instructions, result.fileName);
+          showShareReadyModal("article", result.instructions, result.fileName, article.title);
         } else {
           showToast(t("shareComplete"), "success");
         }
@@ -1794,7 +1796,8 @@
         showToast(t("shareFailed"), "error");
       }
     } catch (err) {
-      showToast(t("shareFailed") + ": " + err.message, "error");
+      console.error("Article share failed", err);
+      showToast(t("shareFailedFriendly"), "error");
     } finally {
       setButtonBusy(shareArticleNativeBtn, false);
       setButtonBusy(shareArticleDownloadBtn, false);
@@ -1865,7 +1868,8 @@
   }
 
   function openResearchPackModal(preSelectedArticles = null) {
-    researchPackArticles = preSelectedArticles || articles.filter((a) => a.listId === activeListId);
+    const selectedListId = listSelect.value || null;
+    researchPackArticles = window.PackageService.resolveResearchPackArticles(preSelectedArticles, articles, selectedListId);
     if (!researchPackArticles.length) {
       showToast(t("noArticlesSelected"), "error");
       return;
@@ -1933,7 +1937,7 @@
 
       if (result.success) {
         if (result.method === "download") {
-          showShareReadyModal("collection", result.instructions, result.fileName);
+          showShareReadyModal("research-pack", result.instructions, result.fileName, name);
         } else {
           showToast(t("shareComplete"), "success");
         }
@@ -1941,14 +1945,16 @@
         showToast(t("shareFailed"), "error");
       }
     } catch (err) {
-      showToast(t("shareFailed") + ": " + err.message, "error");
+      console.error("Research pack share failed", err);
+      showToast(t("shareFailedFriendly"), "error");
     } finally {
       setButtonBusy(researchPackCreateBtn, false);
     }
   }
 
   function openArticleSelectModal() {
-    const listArticles = activeListId ? articles.filter((a) => a.listId === activeListId) : articles;
+    const selectedListId = listSelect.value || null;
+    const listArticles = window.PackageService.selectArticlesForList(articles, selectedListId);
     if (!listArticles.length) {
       showToast(t("noArticlesSelected"), "error");
       return;
@@ -2088,9 +2094,9 @@
       alert(t("atLeastOneArticle"));
       return;
     }
-    researchPackArticles = articles.filter((a) => selectedArticleIds.has(a.id));
+    const selectedArticles = articles.filter((a) => selectedArticleIds.has(a.id));
     closeArticleSelectModal();
-    openResearchPackModal();
+    openResearchPackModal(selectedArticles);
   }
 
   function closeArticleSelectModal() {
@@ -2111,9 +2117,10 @@
     input.click();
   }
 
-  function showShareReadyModal(packageType, instructions, fileName) {
+  function showShareReadyModal(packageType, instructions, fileName, itemName = "") {
     shareReadyInstructions = instructions || "";
     shareReadyFileName = fileName || "";
+    shareReadyItemName = itemName || "";
     const titleKey = packageType === "article" ? "shareReadyTitleArticle"
       : packageType === "research-pack" ? "shareReadyTitleResearchPack"
       : "shareReadyTitleCollection";
@@ -2129,6 +2136,7 @@
     shareReadyModal.classList.add("hidden");
     shareReadyInstructions = "";
     shareReadyFileName = "";
+    shareReadyItemName = "";
   }
 
   function summarizeSharedContent(pkg) {
@@ -2186,7 +2194,8 @@
         importModal.classList.remove("hidden");
       }
     } catch (err) {
-      showToast(t("importFailed") + ": " + err.message, "error");
+      console.error("Shared file import failed", err);
+      showToast(t("importFailedFriendly"), "error");
     } finally {
       setButtonBusy(importBtn, false);
     }
@@ -2223,7 +2232,9 @@
             <option value="__new__" ${needsNewList ? "selected" : ""}>${t("createNewListOption")}</option>
           </select>
           <div id="newListNameContainer" class="${needsNewList ? "" : "hidden"}">
-            <input id="importNewListName" class="input" type="text" placeholder="${t("newListPlaceholder")}" style="margin-bottom: 8px;" />
+            <label class="label" for="importNewListName">${t("importListNameLabel")}</label>
+            <input id="importNewListName" class="input" type="text" placeholder="${t("newListPlaceholder")}" maxlength="120" />
+            <div class="field-help">${t("importListNameHelp")}</div>
           </div>
         </div>
         <div class="preview-section privacy-note">
@@ -2238,9 +2249,13 @@
     // Handle new list option
     const targetListSelect = document.getElementById("importTargetList");
     const newListContainer = document.getElementById("newListNameContainer");
-    if (needsNewList) document.getElementById("importNewListName").value = packageData.collection.name;
+    const newListNameInput = document.getElementById("importNewListName");
+    if (needsNewList) newListNameInput.value = packageData.collection.name;
     targetListSelect.addEventListener("change", () => {
       newListContainer.classList.toggle("hidden", targetListSelect.value !== "__new__");
+      if (targetListSelect.value === "__new__" && !newListNameInput.value.trim()) {
+        newListNameInput.value = packageData.collection.name || article.title || "";
+      }
     });
 
     // Route confirm action through the shared handler
@@ -2379,9 +2394,14 @@
           <div><div class="transfer-hero-title">${escapeHtml(preview.collectionName)}</div><div class="transfer-hero-subtitle">${isNew ? t("addToMyLibrary") : t("importUpdateExistingList")}</div></div>
         </div>
         ${renderTransferMetrics(pendingImportPackage)}
+        <div class="preview-section import-name-section">
+          <label class="label" for="importCollectionName">${t("importListNameLabel")}</label>
+          <input id="importCollectionName" class="input" type="text" maxlength="120" />
+          <div class="field-help">${t("importListNameHelp")}</div>
+        </div>
         <div class="preview-section">
-          <div class="preview-title">${isNew ? t("importPreviewNewCollection", { collectionName: preview.collectionName }) : t("importPreviewExistingCollection", { collectionName: preview.collectionName })}</div>
-          <div class="preview-stats">${t("importPreviewStats", { articleCount: preview.articleCount, notesCount: preview.newNotes + preview.updatedNotes, tagsCount: preview.newTags.length + preview.existingTags.length })}</div>
+          <div class="preview-title">${escapeHtml(isNew ? t("importPreviewNewCollection", { collectionName: preview.collectionName }) : t("importPreviewExistingCollection", { collectionName: preview.collectionName }))}</div>
+          <div class="preview-stats">${escapeHtml(t("importPreviewStats", { articleCount: preview.articleCount, notesCount: preview.newNotes + preview.updatedNotes, tagsCount: preview.newTags.length + preview.existingTags.length }))}</div>
         </div>
         ${renderSharedChipsHtml() ? `<div class="preview-section">
           <div class="preview-title">${t("sharedWithYou")}</div>
@@ -2412,6 +2432,8 @@
 
     importModalBody.innerHTML = html;
     applyI18n();
+    const collectionNameInput = document.getElementById("importCollectionName");
+    if (collectionNameInput) collectionNameInput.value = preview.collectionName || "";
 
     if (isNew) {
       importConfirmBtn.classList.remove("hidden");
@@ -2427,14 +2449,21 @@
 
   async function handleImportConfirm() {
     if (!pendingImportPackage) return;
+    const requestedListName = document.getElementById("importCollectionName")?.value.trim() || "";
+    if (!requestedListName) {
+      showToast(t("enterListName"), "error");
+      document.getElementById("importCollectionName")?.focus();
+      return;
+    }
     try {
       setButtonBusy(importConfirmBtn, true, t("importingNow"));
-      await performImport(pendingImportPackage, false);
+      await performImport(pendingImportPackage, false, requestedListName);
       closeImportModal();
       await loadAll();
       showToast(t("importSuccess"), "success");
     } catch (err) {
-      showToast(t("importFailed") + ": " + err.message, "error");
+      console.error("Collection import failed", err);
+      showToast(t("importFailedFriendly"), "error");
     } finally {
       setButtonBusy(importConfirmBtn, false);
     }
@@ -2449,7 +2478,8 @@
       await loadAll();
       showToast(t("mergeSuccess"), "success");
     } catch (err) {
-      showToast(t("mergeFailed") + ": " + err.message, "error");
+      console.error("Collection merge failed", err);
+      showToast(t("mergeFailedFriendly"), "error");
     } finally {
       setButtonBusy(importMergeBtn, false);
     }
@@ -2462,7 +2492,7 @@
     importConfirmAction = null;
   }
 
-  async function performImport(packageData, isMerge) {
+  async function performImport(packageData, isMerge, requestedListName = "") {
     const manifest = packageData.manifest;
     const collectionData = packageData.collection;
     const articlesData = packageData.articles;
@@ -2485,9 +2515,12 @@
       const additions = result.articles.filter((article) => !localArticles.some((local) => local.id === article.id));
       await applyArticleImport(existingList.id, updates, additions);
     } else {
-      const newList = await addList(collectionData.name);
+      const newList = await addList(requestedListName || collectionData.name);
       try {
-        await updateList(newList.id, { collectionId: collectionData.collectionId, description: collectionData.description });
+        const importedCollectionId = existingList
+          ? "imported_" + crypto.randomUUID()
+          : collectionData.collectionId;
+        await updateList(newList.id, { collectionId: importedCollectionId, description: collectionData.description });
         await applyArticleImport(newList.id, [], articlesData);
       } catch (error) {
         await deleteList(newList.id);
@@ -2647,9 +2680,9 @@
   shareReadyEmailBtn.addEventListener("click", () => {
     const attachNote = t("emailShareAttachNote", { fileName: shareReadyFileName });
     const body = shareReadyFileName
-      ? attachNote + "\n\n" + shareReadyInstructions
+      ? shareReadyInstructions + "\n\n" + attachNote
       : shareReadyInstructions;
-    window.ShareService.openEmailFallback(t("emailShareSubject"), body);
+    window.ShareService.openEmailFallback(t("emailShareSubject", { name: shareReadyItemName || "Article Saver" }), body);
     closeShareReadyModal();
   });
   if (shareReadyModal) shareReadyModal.addEventListener("click", (e) => { if (e.target === shareReadyModal) closeShareReadyModal(); });
@@ -2707,8 +2740,11 @@
       container.className = "toast-container";
       document.body.appendChild(container);
     }
+    container.querySelectorAll(".toast").forEach((existingToast) => dismissToast(existingToast));
     const toast = document.createElement("div");
     toast.className = `toast toast-${type}`;
+    toast.setAttribute("role", type === "error" ? "alert" : "status");
+    toast.setAttribute("aria-live", type === "error" ? "assertive" : "polite");
     const icon = document.createElement("span");
     icon.className = "toast-icon";
     icon.innerHTML = TOAST_ICONS[type] || TOAST_ICONS.info;
@@ -2737,7 +2773,7 @@
       });
     }
     toast.querySelector("[data-toast-close]").addEventListener("click", () => dismissToast(toast));
-    toast._hideTimer = setTimeout(() => dismissToast(toast), 5000);
+    toast._hideTimer = setTimeout(() => dismissToast(toast), type === "error" ? 5500 : 3400);
   }
 
   function dismissToast(toast) {
