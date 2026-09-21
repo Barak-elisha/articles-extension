@@ -10,7 +10,7 @@
   let aiModel = "gemini-2.5-flash";
   let searchQuery = "";
 
-  const t = (k) => window.I18N.t(k);
+  const t = (k, params) => window.I18N.t(k, params);
 
   function setIcon(button, name, label, iconOnly = true) {
     button.dataset.icon = name;
@@ -165,13 +165,17 @@
 
   const $ = (sel) => document.querySelector(sel);
   const listSelect = $("#listSelect");
+  const newListBtn = $("#newListBtn");
+  const newListInline = $("#newListInline");
+  const newListName = $("#newListName");
+  const confirmNewListBtn = $("#confirmNewListBtn");
+  const cancelNewListBtn = $("#cancelNewListBtn");
   const saveBtn = $("#saveBtn");
   const saveStatus = $("#saveStatus");
   const listsContainer = $("#listsContainer");
   const searchInput = $("#searchInput");
-  const newListName = $("#newListName");
-  const addListBtn = $("#addListBtn");
   const exportBtn = $("#exportBtn");
+  const importBtn = $("#importBtn");
   const detailView = $("#detailView");
   const detailBody = $("#detailBody");
   const backBtn = $("#backBtn");
@@ -203,6 +207,78 @@
   let chatMenuIdx = null;
   let chatConfirmIdx = null;
   let chatDeleteFn = null;
+
+  let shareCollectionId = null;
+  let shareArticleId = null;
+  let researchPackArticles = [];
+  let articleSelectionMode = false;
+  let selectedArticleIds = new Set();
+  let importConfirmAction = null;
+  let pendingImportPackage = null;
+  let pendingImportPreview = null;
+
+  const shareModal = $("#shareModal");
+  const shareCollectionName = $("#shareCollectionName");
+  const shareCollectionStats = $("#shareCollectionStats");
+  const shareCollectionOptionsGrid = $("#shareCollectionOptionsGrid");
+  const shareCollectionOptionsSummary = $("#shareCollectionOptionsSummary");
+  const shareMessageContent = $("#shareMessageContent");
+  let shareCopyBtn = $("#shareCopyBtn");
+  const shareNativeBtn = $("#shareNativeBtn");
+  const shareDownloadBtn = $("#shareDownloadBtn");
+  const shareCancelBtn = $("#shareCancelBtn");
+
+  const shareArticleModal = $("#shareArticleModal");
+  const shareArticleName = $("#shareArticleName");
+  const shareArticleStats = $("#shareArticleStats");
+  const shareArticleOptionsGrid = $("#shareArticleOptionsGrid");
+  const shareArticleMessageContent = $("#shareArticleMessageContent");
+  let shareArticleCopyBtn = $("#shareArticleCopyBtn");
+  const shareArticleNativeBtn = $("#shareArticleNativeBtn");
+  const shareArticleDownloadBtn = $("#shareArticleDownloadBtn");
+  const shareArticleCancelBtn = $("#shareArticleCancelBtn");
+
+  const shareReadyModal = $("#shareReadyModal");
+  const shareReadyTitle = $("#shareReadyTitle");
+  const shareReadyFile = $("#shareReadyFile");
+  const shareReadyCopyBtn = $("#shareReadyCopyBtn");
+  const shareReadyEmailBtn = $("#shareReadyEmailBtn");
+  const shareReadyFeedback = $("#shareReadyModal [data-feedback]");
+  let shareReadyInstructions = "";
+  let shareReadyFileName = "";
+  let shareReadyFeedbackTimer = null;
+
+  const researchPackModal = $("#researchPackModal");
+  const researchPackName = $("#researchPackName");
+  const researchPackDescription = $("#researchPackDescription");
+  const researchPackIncludes = $("#researchPackIncludes");
+  const rpIncludeTags = $("#rpIncludeTags");
+  const rpIncludeNotes = $("#rpIncludeNotes");
+  const rpIncludeHighlights = $("#rpIncludeHighlights");
+  const rpIncludeAISummary = $("#rpIncludeAISummary");
+  const rpIncludeAIChat = $("#rpIncludeAIChat");
+  const researchPackArticleCount = $("#researchPackArticleCount");
+  const researchPackCreateBtn = $("#researchPackCreateBtn");
+  const researchPackCancelBtn = $("#researchPackCancelBtn");
+
+  const exportDropdown = $("#exportDropdown");
+  const exportDropdownMenu = $("#exportDropdownMenu");
+  const exportExcelBtn = $("#exportExcelBtn");
+  const exportPackageBtn = $("#exportPackageBtn");
+
+  const importModal = $("#importModal");
+  const importModalBody = $("#importModalBody");
+  const importConfirmBtn = $("#importConfirmBtn");
+  const importMergeBtn = $("#importMergeBtn");
+  const importCancelBtn = $("#importCancelBtn");
+
+  const articleSelectModal = $("#articleSelectModal");
+  const articleSelectionList = $("#articleSelectionList");
+  const selectAllBtn = $("#selectAllBtn");
+  const deselectAllBtn = $("#deselectAllBtn");
+  const selectionCount = $("#selectionCount");
+  const articleSelectConfirmBtn = $("#articleSelectConfirmBtn");
+  const articleSelectCancelBtn = $("#articleSelectCancelBtn");
 
   const closeChatMenu = () => {
     chatCtxMenu.classList.add("hidden");
@@ -451,6 +527,12 @@
       const actions = document.createElement("div");
       actions.className = "list-actions";
 
+      const shareBtn = document.createElement("button");
+      shareBtn.className = "icon-btn";
+      setIcon(shareBtn, "send", t("shareCollection"));
+      shareBtn.title = t("shareCollection");
+      shareBtn.addEventListener("click", () => openShareCollectionModal(list.id));
+
       const editBtn = document.createElement("button");
       editBtn.className = "icon-btn";
       setIcon(editBtn, "pencil", t("editTitle"));
@@ -463,6 +545,7 @@
       delBtn.title = t("deleteListTitle");
       delBtn.addEventListener("click", () => removeList(list.id));
 
+      actions.appendChild(shareBtn);
       actions.appendChild(editBtn);
       actions.appendChild(delBtn);
 
@@ -514,11 +597,23 @@
       if (a.url) chrome.tabs.create({ url: a.url });
     });
 
+    const shareBtn = document.createElement("button");
+    shareBtn.className = "icon-btn share-btn";
+    setIcon(shareBtn, "send", t("shareArticle"));
+    shareBtn.title = t("shareArticle");
+    shareBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      openShareArticleModal(a.id);
+    });
+
     const delBtn = document.createElement("button");
     delBtn.className = "icon-btn danger";
     setIcon(delBtn, "trash-2", t("deleteArticleTitle"));
     delBtn.title = t("deleteArticleTitle");
-    delBtn.addEventListener("click", () => removeArticle(a.id));
+    delBtn.addEventListener("click", (e) => {
+      e.stopPropagation();
+      removeArticle(a.id);
+    });
 
     const articleInfo = document.createElement("div");
     articleInfo.className = "article-info";
@@ -532,6 +627,7 @@
     articleInfo.appendChild(source);
     row.appendChild(articleInfo);
     row.appendChild(openBtn);
+    row.appendChild(shareBtn);
     row.appendChild(delBtn);
     return row;
   }
@@ -678,10 +774,11 @@
       : "";
     const fileName = listFileName ? listFileName + ".xlsx" : t("excelFileName");
     if (!exportArticles.length) {
-      alert(t("noArticlesExport"));
+      showToast(t("noArticlesExport"), "info");
       return;
     }
     try {
+      setButtonBusy(exportExcelBtn, true, t("preparingExport"));
       const blob = await buildExcelBlob(exportArticles, exportLists);
       if (window.showSaveFilePicker) {
         const handle = await window.showSaveFilePicker({
@@ -694,7 +791,7 @@
         const writable = await handle.createWritable();
         await writable.write(blob);
         await writable.close();
-        alert(t("exportSaved"));
+        showToast(t("exportSaved"), "success");
       } else {
         const url = URL.createObjectURL(blob);
         const a = document.createElement("a");
@@ -702,10 +799,13 @@
         a.download = fileName;
         a.click();
         setTimeout(() => URL.revokeObjectURL(url), 4000);
+        showToast(t("exportSaved"), "success");
       }
     } catch (e) {
       if (e && e.name === "AbortError") return; // user cancelled
-      alert(t("exportError") + e.message);
+      showToast(t("exportError") + e.message, "error");
+    } finally {
+      setButtonBusy(exportExcelBtn, false);
     }
   }
 
@@ -856,6 +956,14 @@
     });
     titleRow.appendChild(title);
     titleRow.appendChild(titleEditBtn);
+
+    const shareArticleBtn = document.createElement("button");
+    shareArticleBtn.type = "button";
+    shareArticleBtn.className = "icon-btn";
+    setIcon(shareArticleBtn, "send", t("shareArticle"));
+    shareArticleBtn.title = t("shareArticle");
+    shareArticleBtn.addEventListener("click", () => openShareArticleModal(a.id));
+    titleRow.appendChild(shareArticleBtn);
 
     const url = document.createElement("a");
     url.className = "detail-url";
@@ -1412,6 +1520,988 @@
     }
   }
 
+  /* ---------- Sharing & Import Functions ---------- */
+
+  function getListArticles(listId) {
+    return articles.filter((a) => a.listId === listId);
+  }
+
+  function openShareCollectionModal(listId) {
+    const list = lists.find((l) => l.id === listId);
+    if (!list) return;
+    shareCollectionId = listId;
+    const listArticles = getListArticles(listId);
+
+    // Set name and stats
+    shareCollectionName.textContent = list.name;
+    shareCollectionStats.textContent = t("importPreviewStats", {
+      articleCount: listArticles.length,
+      notesCount: listArticles.filter(a => a.notes).length,
+      tagsCount: new Set(listArticles.flatMap(a => a.tags || [])).size,
+    });
+
+    // Render options
+    const options = [
+      { id: "scIncludeNotes", key: "shareOptionsNotes", checked: true },
+      { id: "scIncludeAISummary", key: "shareOptionsAISummary", checked: true },
+      { id: "scIncludeAIChat", key: "shareOptionsAIChat", checked: true },
+      { id: "scIncludeTags", key: "shareOptionsTags", checked: true },
+      { id: "scIncludeHighlights", key: "shareOptionsHighlights", checked: true },
+    ];
+
+    shareCollectionOptionsGrid.innerHTML = options.map(opt => `
+      <label class="share-option-chip" data-option="${opt.id}">
+        <input type="checkbox" id="${opt.id}" ${opt.checked ? "checked" : ""} />
+        <span class="option-label">${t(opt.key)}</span>
+      </label>
+    `).join("");
+
+    // Render message preview
+    renderShareMessagePreview("collection", list.name);
+
+    // Update summary
+    updateShareCollectionSummary(listArticles);
+
+    // Add checkbox listeners
+    shareCollectionOptionsGrid.querySelectorAll("input[type=checkbox]").forEach(cb => {
+      cb.addEventListener("change", () => updateShareCollectionSummary(listArticles));
+    });
+
+    shareModal.classList.remove("hidden");
+  }
+
+  function updateShareCollectionSummary(listArticles) {
+    const checkboxes = shareCollectionOptionsGrid.querySelectorAll("input[type=checkbox]");
+    const options = {
+      notes: checkboxes[0]?.checked ?? true,
+      aiSummary: checkboxes[1]?.checked ?? true,
+      aiChat: checkboxes[2]?.checked ?? true,
+      tags: checkboxes[3]?.checked ?? true,
+      highlights: checkboxes[4]?.checked ?? true,
+    };
+
+    let parts = [];
+    parts.push(`${listArticles.length} ${t("articlesCount")}`);
+    if (options.tags) {
+      const tagCount = new Set(listArticles.flatMap(a => a.tags || [])).size;
+      if (tagCount) parts.push(`${tagCount} ${t("tags")}`);
+    }
+    if (options.notes) {
+      const notesCount = listArticles.filter(a => a.notes).length;
+      if (notesCount) parts.push(`${notesCount} ${t("notesCount")}`);
+    }
+    if (options.highlights) {
+      const highlightsCount = listArticles.reduce((sum, a) => sum + (a.highlights?.length || 0), 0);
+      if (highlightsCount) parts.push(`${highlightsCount} ${t("highlights")}`);
+    }
+    if (options.aiSummary) {
+      const summaryCount = listArticles.filter(a => a.summary).length;
+      if (summaryCount) parts.push(`${summaryCount} ${t("includeAISummary")}`);
+    }
+    if (options.aiChat) {
+      const chatCount = listArticles.filter(a => a.chat && a.chat.length > 0).length;
+      if (chatCount) parts.push(`${chatCount} ${t("includeAIChat")}`);
+    }
+
+    // Re-render message preview with current options
+    renderShareMessagePreview("collection", lists.find(l => l.id === shareCollectionId)?.name || "");
+  }
+
+  function closeShareModal() {
+    shareModal.classList.add("hidden");
+    shareCollectionId = null;
+  }
+
+  async function handleShareCollection(method) {
+    if (!shareCollectionId) return;
+    const list = lists.find((l) => l.id === shareCollectionId);
+    if (!list) return;
+    const listArticles = getListArticles(shareCollectionId);
+
+    const checkboxes = shareCollectionOptionsGrid.querySelectorAll("input[type=checkbox]");
+    const includeNotes = checkboxes[0]?.checked ?? true;
+    const includeAISummary = checkboxes[1]?.checked ?? true;
+    const includeAIChat = checkboxes[2]?.checked ?? true;
+    const includeTags = checkboxes[3]?.checked ?? true;
+    const includeHighlights = checkboxes[4]?.checked ?? true;
+
+    try {
+      setButtonBusy(method === "download" ? shareDownloadBtn : shareNativeBtn, true, t("preparingExport"));
+      const packageData = window.PackageService.buildPackage({
+        packageType: "collection",
+        list,
+        articles: listArticles,
+        description: list.description,
+        includeNotes,
+        includeTags,
+        includeHighlights,
+        includeAISummary,
+        includeAIChat,
+      });
+
+      const blob = await window.PackageService.serializePackage(packageData);
+      const fileName = window.PackageService.getFileName(list.name, "collection");
+
+      closeShareModal();
+
+      if (method === "copy") {
+        const instructions = window.ShareService.getShareInstructions("collection", list.name);
+        const copied = await window.ShareService.copyToClipboard(instructions);
+        if (copied.success) {
+          showToast(t("shareComplete"), "success", t("copy"), () => {
+            navigator.clipboard.writeText(instructions);
+          });
+        } else {
+          showToast(t("shareFailed") + ": " + (copied.error?.message || "Clipboard access denied"), "error");
+        }
+        return;
+      }
+
+      const result = await window.ShareService.sharePackage(blob, fileName, "collection", list.name, {
+        preferNative: method === "native",
+      });
+
+      if (result.success) {
+        if (result.method === "download") {
+          showShareReadyModal("collection", result.instructions, result.fileName);
+        } else {
+          showToast(t("shareComplete"), "success");
+        }
+      } else if (result.reason !== "user-cancelled") {
+        showToast(t("shareFailed"), "error");
+      }
+    } catch (err) {
+      showToast(t("shareFailed") + ": " + err.message, "error");
+    } finally {
+      setButtonBusy(shareNativeBtn, false);
+      setButtonBusy(shareDownloadBtn, false);
+    }
+  }
+
+  function openShareArticleModal(articleId) {
+    const article = articles.find((a) => a.id === articleId);
+    if (!article) return;
+    shareArticleId = articleId;
+
+    // Set name and stats
+    let articleHost = "";
+    try { if (article.url) articleHost = new URL(article.url).hostname; } catch (e) {}
+    shareArticleName.textContent = article.title;
+    shareArticleStats.textContent = articleHost;
+
+    // Render options
+    const options = [
+      { id: "saIncludeNotes", key: "shareOptionsNotes", checked: true },
+      { id: "saIncludeHighlights", key: "shareOptionsHighlights", checked: true },
+      { id: "saIncludeAISummary", key: "shareOptionsAISummary", checked: true },
+      { id: "saIncludeAIChat", key: "shareOptionsAIChat", checked: true },
+    ];
+
+    shareArticleOptionsGrid.innerHTML = options.map(opt => `
+      <label class="share-option-chip" data-option="${opt.id}">
+        <input type="checkbox" id="${opt.id}" ${opt.checked ? "checked" : ""} />
+        <span class="option-label">${t(opt.key)}</span>
+      </label>
+    `).join("");
+
+    // Render message preview
+    renderShareMessagePreview("article", article.title);
+
+    // Add checkbox listeners
+    shareArticleOptionsGrid.querySelectorAll("input[type=checkbox]").forEach(cb => {
+      cb.addEventListener("change", () => updateShareArticleSummary(article));
+    });
+
+    shareArticleModal.classList.remove("hidden");
+  }
+
+  function updateShareArticleSummary(article) {
+    const checkboxes = shareArticleOptionsGrid.querySelectorAll("input[type=checkbox]");
+    const options = {
+      notes: checkboxes[0]?.checked ?? true,
+      highlights: checkboxes[1]?.checked ?? true,
+      aiSummary: checkboxes[2]?.checked ?? true,
+      aiChat: checkboxes[3]?.checked ?? true,
+    };
+
+    let parts = [];
+    if (options.notes && article.notes) parts.push(`${t("notesCount")}`);
+    if (options.highlights && article.highlights?.length) parts.push(`${article.highlights.length} ${t("highlights")}`);
+    if (options.aiSummary && article.summary) parts.push(`${t("includeAISummary")}`);
+    if (options.aiChat && article.chat?.length) parts.push(`${t("includeAIChat")}`);
+
+    // Update message preview
+    renderShareMessagePreview("article", article.title);
+  }
+
+  function closeShareArticleModal() {
+    shareArticleModal.classList.add("hidden");
+    shareArticleId = null;
+  }
+
+  async function handleShareArticle(method) {
+    if (!shareArticleId) return;
+    const article = articles.find((a) => a.id === shareArticleId);
+    if (!article) return;
+
+    const includeNotes = document.getElementById("saIncludeNotes")?.checked ?? true;
+    const includeHighlights = document.getElementById("saIncludeHighlights")?.checked ?? true;
+    const includeAISummary = document.getElementById("saIncludeAISummary")?.checked ?? true;
+    const includeAIChat = document.getElementById("saIncludeAIChat")?.checked ?? true;
+
+    try {
+      setButtonBusy(method === "download" ? shareArticleDownloadBtn : shareArticleNativeBtn, true, t("preparingExport"));
+      const packageData = window.PackageService.buildPackage({
+        packageType: "article",
+        list: { id: "temp", name: article.title, collectionId: "temp_" + crypto.randomUUID(), createdAt: Date.now() },
+        articles: [article],
+        includeNotes,
+        includeHighlights,
+        includeTags: false,
+        includeAISummary,
+        includeAIChat,
+      });
+
+      const blob = await window.PackageService.serializePackage(packageData);
+      const fileName = window.PackageService.getFileName(article.title, "article");
+
+      closeShareArticleModal();
+
+      if (method === "copy") {
+        const instructions = window.ShareService.getShareInstructions("article", article.title);
+        const copied = await window.ShareService.copyToClipboard(instructions);
+        if (copied.success) {
+          showToast(t("shareComplete"), "success", t("copy"), () => {
+            navigator.clipboard.writeText(instructions);
+          });
+        } else {
+          showToast(t("shareFailed") + ": " + (copied.error?.message || "Clipboard access denied"), "error");
+        }
+        return;
+      }
+
+      const result = await window.ShareService.sharePackage(blob, fileName, "article", article.title, {
+        preferNative: method === "native",
+      });
+
+      if (result.success) {
+        if (result.method === "download") {
+          showShareReadyModal("article", result.instructions, result.fileName);
+        } else {
+          showToast(t("shareComplete"), "success");
+        }
+      } else if (result.reason !== "user-cancelled") {
+        showToast(t("shareFailed"), "error");
+      }
+    } catch (err) {
+      showToast(t("shareFailed") + ": " + err.message, "error");
+    } finally {
+      setButtonBusy(shareArticleNativeBtn, false);
+      setButtonBusy(shareArticleDownloadBtn, false);
+    }
+  }
+
+  function renderShareMessagePreview(packageType, collectionName) {
+    const list = lists.find(l => l.id === shareCollectionId);
+    const article = articles.find(a => a.id === shareArticleId);
+
+    let options = {};
+    if (packageType === "collection") {
+      const checkboxes = shareCollectionOptionsGrid?.querySelectorAll("input[type=checkbox]");
+      options = {
+        articles: checkboxes?.[0]?.checked ?? true,
+        notes: checkboxes?.[1]?.checked ?? true,
+        aiSummary: checkboxes?.[2]?.checked ?? true,
+        aiChat: checkboxes?.[3]?.checked ?? true,
+        tags: checkboxes?.[4]?.checked ?? true,
+        highlights: checkboxes?.[5]?.checked ?? true,
+      };
+    } else {
+      const checkboxes = shareArticleOptionsGrid?.querySelectorAll("input[type=checkbox]");
+      options = {
+        notes: checkboxes?.[0]?.checked ?? true,
+        highlights: checkboxes?.[1]?.checked ?? true,
+        aiSummary: checkboxes?.[2]?.checked ?? true,
+        aiChat: checkboxes?.[3]?.checked ?? true,
+      };
+    }
+
+    const instructions = window.ShareService.getShareInstructions(packageType, collectionName);
+    const targetContentEl = packageType === "article" ? shareArticleMessageContent : shareMessageContent;
+    const targetCopyBtn = packageType === "article" ? shareArticleCopyBtn : shareCopyBtn;
+
+    if (!targetContentEl || !targetCopyBtn) return;
+
+    // Reset copy button state
+    targetCopyBtn.classList.remove("copied");
+
+    // Render message as clean read-only paragraphs
+    targetContentEl.innerHTML = instructions
+      .split(/\n{2,}/)
+      .map(para => para.trim())
+      .filter(Boolean)
+      .map(para => `<p>${escapeHtml(para).replace(/\n/g, "<br>")}</p>`)
+      .join("");
+
+    // Add copy handler
+    const newBtn = targetCopyBtn.cloneNode(true);
+    targetCopyBtn.parentNode.replaceChild(newBtn, targetCopyBtn);
+
+    if (packageType === "article") {
+      shareArticleCopyBtn = newBtn;
+    } else {
+      shareCopyBtn = newBtn;
+    }
+
+    newBtn.addEventListener("click", async () => {
+      try {
+        await navigator.clipboard.writeText(instructions);
+        newBtn.classList.add("copied");
+        setTimeout(() => newBtn.classList.remove("copied"), 1500);
+      } catch (e) {
+        showToast(t("copyFailed"), "error");
+      }
+    });
+  }
+
+  function openResearchPackModal(preSelectedArticles = null) {
+    researchPackArticles = preSelectedArticles || articles.filter((a) => a.listId === activeListId);
+    if (!researchPackArticles.length) {
+      showToast(t("noArticlesSelected"), "error");
+      return;
+    }
+
+    researchPackName.value = "";
+    researchPackDescription.value = "";
+    rpIncludeTags.checked = true;
+    rpIncludeNotes.checked = true;
+    rpIncludeHighlights.checked = true;
+    updateResearchPackCount();
+
+    researchPackModal.classList.remove("hidden");
+  }
+
+  function updateResearchPackCount() {
+    const count = researchPackArticles.length;
+    researchPackArticleCount.textContent = t("articlesSelected", { count });
+  }
+
+  function closeResearchPackModal() {
+    researchPackModal.classList.add("hidden");
+    researchPackArticles = [];
+  }
+
+  async function handleCreateResearchPack() {
+    const name = researchPackName.value.trim() || t("researchPack");
+    const description = researchPackDescription.value.trim();
+    const includeTags = rpIncludeTags.checked;
+    const includeNotes = rpIncludeNotes.checked;
+    const includeHighlights = rpIncludeHighlights.checked;
+    const includeAISummary = rpIncludeAISummary?.checked ?? true;
+    const includeAIChat = rpIncludeAIChat?.checked ?? true;
+
+    try {
+      setButtonBusy(researchPackCreateBtn, true, t("preparingExport"));
+      const tempList = {
+        id: "temp",
+        name,
+        collectionId: "pack_" + crypto.randomUUID(),
+        createdAt: Date.now(),
+        description,
+      };
+
+      const packageData = window.PackageService.buildPackage({
+        packageType: "research-pack",
+        list: tempList,
+        articles: researchPackArticles,
+        description,
+        includeNotes,
+        includeTags,
+        includeHighlights,
+        includeAISummary,
+        includeAIChat,
+      });
+
+      const blob = await window.PackageService.serializePackage(packageData);
+      const fileName = window.PackageService.getFileName(name, "research-pack");
+
+      closeResearchPackModal();
+
+      const result = await window.ShareService.sharePackage(blob, fileName, "research-pack", name, {
+        preferNative: true,
+      });
+
+      if (result.success) {
+        if (result.method === "download") {
+          showShareReadyModal("collection", result.instructions, result.fileName);
+        } else {
+          showToast(t("shareComplete"), "success");
+        }
+      } else if (result.reason !== "user-cancelled") {
+        showToast(t("shareFailed"), "error");
+      }
+    } catch (err) {
+      showToast(t("shareFailed") + ": " + err.message, "error");
+    } finally {
+      setButtonBusy(researchPackCreateBtn, false);
+    }
+  }
+
+  function openArticleSelectModal() {
+    const listArticles = activeListId ? articles.filter((a) => a.listId === activeListId) : articles;
+    if (!listArticles.length) {
+      showToast(t("noArticlesSelected"), "error");
+      return;
+    }
+
+    articleSelectionMode = true;
+    selectedArticleIds.clear();
+    renderArticleSelectionList(listArticles);
+    articleSelectModal.classList.remove("hidden");
+  }
+
+  function renderArticleSelectionList(listArticles) {
+    articleSelectionList.innerHTML = "";
+
+    // Group articles by list
+    const articlesByList = new Map();
+    for (const article of listArticles) {
+      const list = lists.find(l => l.id === article.listId);
+      const listName = list ? list.name : t("noList");
+      if (!articlesByList.has(listName)) {
+        articlesByList.set(listName, []);
+      }
+      articlesByList.get(listName).push(article);
+    }
+
+    // Sort lists by name for consistent ordering
+    const sortedLists = Array.from(articlesByList.entries()).sort((a, b) => a[0].localeCompare(b[0]));
+
+    for (const [listName, articles] of sortedLists) {
+      const listId = "list-group-" + listName.replace(/[^a-zA-Z0-9]/g, "-");
+      const allSelected = articles.every(a => selectedArticleIds.has(a.id));
+      const someSelected = articles.some(a => selectedArticleIds.has(a.id));
+
+      const group = document.createElement("div");
+      group.className = "article-selection-group";
+      group.innerHTML = `
+        <div class="article-selection-group-header">
+          <label class="checkbox-group-label">
+            <input type="checkbox" class="group-select-all" data-list="${escapeHtml(listName)}" ${allSelected ? "checked" : ""} ${someSelected && !allSelected ? 'indeterminate' : ""} />
+            <span class="group-name">${escapeHtml(listName)}</span>
+            <span class="group-count">(${articles.length} ${t("articlesCount")})</span>
+          </label>
+        </div>
+        <div class="article-selection-group-items" id="${listId}"></div>
+      `;
+
+      const itemsContainer = group.querySelector(".article-selection-group-items");
+      for (const article of articles) {
+        const item = document.createElement("div");
+        item.className = "article-selection-item";
+        const isSelected = selectedArticleIds.has(article.id);
+        item.innerHTML = `
+          <input type="checkbox" class="article-selection-checkbox" data-id="${article.id}" ${isSelected ? "checked" : ""} />
+          <div class="article-selection-info">
+            <div class="article-selection-title">${escapeHtml(article.title || t("noTitle"))}</div>
+            <div class="article-selection-meta">
+              ${(() => { try { return article.url ? escapeHtml(new URL(article.url).hostname) : ""; } catch (_) { return ""; } })()}
+              ${article.savedAt ? " · " + new Date(article.savedAt).toLocaleDateString() : ""}
+            </div>
+          </div>
+        `;
+        const checkbox = item.querySelector(".article-selection-checkbox");
+        checkbox.addEventListener("change", () => {
+          if (checkbox.checked) selectedArticleIds.add(article.id);
+          else selectedArticleIds.delete(article.id);
+          updateGroupCheckbox(listName);
+          updateSelectionCount();
+        });
+        itemsContainer.appendChild(item);
+      }
+
+      const groupCheckbox = group.querySelector(".group-select-all");
+      groupCheckbox.addEventListener("change", () => {
+        const checked = groupCheckbox.checked;
+        for (const article of articles) {
+          if (checked) selectedArticleIds.add(article.id);
+          else selectedArticleIds.delete(article.id);
+        }
+        // Update individual checkboxes
+        itemsContainer.querySelectorAll(".article-selection-checkbox").forEach(cb => {
+          cb.checked = checked;
+        });
+        updateSelectionCount();
+      });
+
+      articleSelectionList.appendChild(group);
+    }
+    updateSelectionCount();
+  }
+
+  function updateGroupCheckbox(listName) {
+    const itemsContainer = document.querySelector(`#list-group-${listName.replace(/[^a-zA-Z0-9]/g, "-")}`);
+    if (!itemsContainer) return;
+    const checkboxes = itemsContainer.querySelectorAll(".article-selection-checkbox");
+    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+    const someChecked = Array.from(checkboxes).some(cb => cb.checked);
+    const groupCheckbox = document.querySelector(`.group-select-all[data-list="${escapeHtml(listName)}"]`);
+    if (groupCheckbox) {
+      groupCheckbox.checked = allChecked;
+      groupCheckbox.indeterminate = someChecked && !allChecked;
+    }
+  }
+
+  function updateSelectionCount() {
+    selectionCount.textContent = t("articlesSelected", { count: selectedArticleIds.size });
+  }
+
+  function selectAllArticles() {
+    const checkboxes = articleSelectionList.querySelectorAll(".article-selection-checkbox");
+    checkboxes.forEach((cb) => {
+      cb.checked = true;
+      selectedArticleIds.add(cb.dataset.id);
+    });
+    // Update all group checkboxes
+    articleSelectionList.querySelectorAll(".group-select-all").forEach(g => {
+      g.checked = true;
+      g.indeterminate = false;
+    });
+    updateSelectionCount();
+  }
+
+  function deselectAllArticles() {
+    const checkboxes = articleSelectionList.querySelectorAll(".article-selection-checkbox");
+    checkboxes.forEach((cb) => {
+      cb.checked = false;
+      selectedArticleIds.delete(cb.dataset.id);
+    });
+    articleSelectionList.querySelectorAll(".group-select-all").forEach(g => {
+      g.checked = false;
+      g.indeterminate = false;
+    });
+    updateSelectionCount();
+  }
+
+  function confirmArticleSelection() {
+    if (selectedArticleIds.size === 0) {
+      alert(t("atLeastOneArticle"));
+      return;
+    }
+    researchPackArticles = articles.filter((a) => selectedArticleIds.has(a.id));
+    closeArticleSelectModal();
+    openResearchPackModal();
+  }
+
+  function closeArticleSelectModal() {
+    articleSelectModal.classList.add("hidden");
+    articleSelectionMode = false;
+    selectedArticleIds.clear();
+  }
+
+  function openImportModal() {
+    const input = document.createElement("input");
+    input.type = "file";
+    input.accept = ".articlesaver,application/json";
+    input.addEventListener("change", async (e) => {
+      const file = e.target.files[0];
+      if (!file) return;
+      await handleImportFile(file);
+    });
+    input.click();
+  }
+
+  function showShareReadyModal(packageType, instructions, fileName) {
+    shareReadyInstructions = instructions || "";
+    shareReadyFileName = fileName || "";
+    const titleKey = packageType === "article" ? "shareReadyTitleArticle"
+      : packageType === "research-pack" ? "shareReadyTitleResearchPack"
+      : "shareReadyTitleCollection";
+    shareReadyTitle.textContent = t(titleKey);
+    shareReadyFile.textContent = shareReadyFileName
+      ? t("shareReadyFile", { fileName: shareReadyFileName })
+      : "";
+    shareReadyFeedback.classList.remove("visible");
+    shareReadyModal.classList.remove("hidden");
+  }
+
+  function closeShareReadyModal() {
+    shareReadyModal.classList.add("hidden");
+    shareReadyInstructions = "";
+    shareReadyFileName = "";
+  }
+
+  function summarizeSharedContent(pkg) {
+    const arts = (pkg && pkg.articles) || [];
+    const labels = [];
+    if (arts.some((a) => a.notes)) labels.push(t("shareOptionsNotes"));
+    if (arts.some((a) => Array.isArray(a.tags) && a.tags.length)) labels.push(t("shareOptionsTags"));
+    if (arts.some((a) => a.summary)) labels.push(t("shareOptionsAISummary"));
+    if (arts.some((a) => Array.isArray(a.chat) && a.chat.length)) labels.push(t("shareOptionsAIChat"));
+    return labels;
+  }
+
+  function renderSharedChipsHtml() {
+    return summarizeSharedContent(pendingImportPackage)
+      .map((label) => `<span class="content-chip">${escapeHtml(label)}</span>`)
+      .join("");
+  }
+
+  function renderTransferMetrics(packageData) {
+    const preview = pendingImportPreview || {};
+    const articles = packageData.articles || [];
+    const metrics = [
+      [articles.length, t("shareOptionsArticles")],
+      [preview.summaries ?? articles.filter((article) => article.summary).length, t("shareOptionsAISummary")],
+      [preview.chats ?? articles.filter((article) => article.chat?.length).length, t("shareOptionsAIChat")],
+      [preview.highlights ?? articles.reduce((sum, article) => sum + (article.highlights?.length || 0), 0), t("shareOptionsHighlights")],
+    ];
+    return `<div class="transfer-metrics">${metrics.map(([value, label]) =>
+      `<div class="transfer-metric"><strong>${value}</strong><span>${escapeHtml(label)}</span></div>`
+    ).join("")}</div>`;
+  }
+
+  async function handleImportFile(file) {
+    try {
+      setButtonBusy(importBtn, true, t("importingNow"));
+      const packageData = await window.PackageService.parsePackageFile(file);
+      const existingList = await getListByCollectionId(packageData.manifest.collectionId);
+      const allLocalArticles = await getArticles();
+      const localArticles = existingList
+        ? allLocalArticles.filter((article) => article.listId === existingList.id)
+        : [];
+
+      pendingImportPackage = packageData;
+      pendingImportPreview = window.PackageService.createImportPreview(packageData, existingList, localArticles);
+
+      // Determine package type
+      const isSingleArticle = packageData.manifest.packageType === "article";
+
+      if (isSingleArticle) {
+        // Single article - show list selection modal
+        await showArticleImportTargetModal(packageData);
+      } else {
+        // Collection - show import preview with merge/new options
+        renderImportPreview(pendingImportPreview);
+        importModal.classList.remove("hidden");
+      }
+    } catch (err) {
+      showToast(t("importFailed") + ": " + err.message, "error");
+    } finally {
+      setButtonBusy(importBtn, false);
+    }
+  }
+
+  async function showArticleImportTargetModal(packageData) {
+    const lists = await getLists();
+    const article = packageData.articles[0];
+
+    const listOptions = lists.map(l =>
+      `<option value="${l.id}">${escapeHtml(l.name)}</option>`
+    ).join("");
+    const needsNewList = lists.length === 0;
+
+    importModalBody.innerHTML = `
+      <div class="import-preview">
+        <div class="transfer-hero">
+          <div class="transfer-hero-icon" aria-hidden="true">↓</div>
+          <div><div class="transfer-hero-title">${t("importArticleTitle", { title: escapeHtml(article.title) })}</div><div class="transfer-hero-subtitle">${t("sharedWithYou")}</div></div>
+        </div>
+        ${renderTransferMetrics(packageData)}
+        <div class="preview-section">
+          <div class="preview-title">${t("importPreviewChangesTitle")}</div>
+          <div class="preview-stats">${t("importPreviewStats", { articleCount: 1, notesCount: article.notes ? 1 : 0, tagsCount: (article.tags || []).length })}</div>
+        </div>
+        ${renderSharedChipsHtml() ? `<div class="preview-section">
+          <div class="preview-title">${t("sharedWithYou")}</div>
+          <div class="preview-chips">${renderSharedChipsHtml()}</div>
+        </div>` : ""}
+        <div class="preview-section">
+          <label class="label" style="margin-bottom: 8px; display: block;">${t("selectTargetList")}</label>
+          <select id="importTargetList" class="select" style="margin-bottom: 12px;">
+            ${listOptions}
+            <option value="__new__" ${needsNewList ? "selected" : ""}>${t("createNewListOption")}</option>
+          </select>
+          <div id="newListNameContainer" class="${needsNewList ? "" : "hidden"}">
+            <input id="importNewListName" class="input" type="text" placeholder="${t("newListPlaceholder")}" style="margin-bottom: 8px;" />
+          </div>
+        </div>
+        <div class="preview-section privacy-note">
+          <strong>${t("localOnly")}</strong>
+          <div>${t("noServerInvolved")}</div>
+        </div>
+      </div>
+    `;
+    applyI18n();
+    importModal.classList.remove("hidden");
+
+    // Handle new list option
+    const targetListSelect = document.getElementById("importTargetList");
+    const newListContainer = document.getElementById("newListNameContainer");
+    if (needsNewList) document.getElementById("importNewListName").value = packageData.collection.name;
+    targetListSelect.addEventListener("change", () => {
+      newListContainer.classList.toggle("hidden", targetListSelect.value !== "__new__");
+    });
+
+    // Route confirm action through the shared handler
+    importConfirmAction = async () => {
+      const targetListId = targetListSelect.value;
+      let finalListId = targetListId;
+
+      if (targetListId === "__new__") {
+        const newListName = document.getElementById("importNewListName").value.trim();
+        if (!newListName) {
+          showToast(t("enterListName"), "error");
+          return;
+        }
+        const newList = await addList(newListName);
+        finalListId = newList.id;
+      }
+
+      await importSingleArticle(packageData, finalListId);
+      closeImportModal();
+    };
+
+    importConfirmBtn.classList.remove("hidden");
+    importMergeBtn.classList.add("hidden");
+    importConfirmBtn.textContent = t("addToMyList");
+  }
+
+  async function importSingleArticle(packageData, targetListId) {
+    const article = packageData.articles[0];
+    const localArticles = await getArticles();
+
+    // Check for duplicates by URL or DOI
+    let duplicateArticle = null;
+    if (article.url) {
+      duplicateArticle = localArticles.find(a => a.url === article.url && a.listId === targetListId);
+    }
+    if (!duplicateArticle && article.doi) {
+      duplicateArticle = localArticles.find(a => a.doi === article.doi && a.listId === targetListId);
+    }
+
+    if (duplicateArticle) {
+      // Show conflict resolution modal
+      const choice = await showArticleConflictModal(duplicateArticle, article);
+      if (choice === "cancel") return;
+      if (choice === "skip") {
+        showToast(t("articleSkipped"), "info");
+        return;
+      }
+      if (choice === "merge") {
+        const merged = window.MergeService.createMergedArticle(duplicateArticle, article, {
+          preferLocalContent: true,
+          preferImportedSummary: true,
+        });
+        await applyArticleImport(targetListId, [merged], []);
+        showToast(t("mergeSuccess"), "success");
+        await loadAll();
+        return;
+      }
+      // choice === "duplicate" - proceed with a separate record.
+    }
+
+    await addArticle({
+      listId: targetListId,
+      title: article.title,
+      content: article.content,
+      contentFormat: article.contentFormat,
+      url: article.url,
+      doi: article.doi,
+      authors: article.authors,
+      publication: article.publication,
+      tags: article.tags,
+      notes: article.notes,
+      highlights: article.highlights,
+      summary: article.summary,
+      summaryHtml: article.summaryHtml,
+      summaryHtmlSource: article.summaryHtmlSource,
+      chat: article.chat,
+      savedAt: article.savedAt,
+    });
+
+    showToast(t("importSuccess"), "success");
+    await loadAll();
+  }
+
+  function showArticleConflictModal(existing, incoming) {
+    return new Promise((resolve) => {
+      const modal = document.createElement("div");
+      modal.className = "modal-overlay";
+      modal.innerHTML = `
+        <div class="modal conflict-modal" role="dialog" aria-modal="true" aria-labelledby="conflictTitle">
+          <div class="modal-title" id="conflictTitle">${t("articleAlreadyExists")}</div>
+          <div class="modal-body">
+            <p>${t("articleExistsInList", { title: escapeHtml(existing.title) })}</p>
+            <div class="conflict-version">
+              <strong>${t("existingVersion")}</strong><br>
+              <small>Saved: ${new Date(existing.savedAt).toLocaleString()}</small><br>
+              <small>URL: ${escapeHtml(existing.url || "")}</small>
+            </div>
+            <div class="conflict-version conflict-version-incoming">
+              <strong>${t("incomingVersion")}</strong><br>
+              <small>Saved: ${new Date(incoming.savedAt).toLocaleString()}</small><br>
+              <small>URL: ${escapeHtml(incoming.url || "")}</small>
+            </div>
+          </div>
+          <div class="modal-actions conflict-actions">
+            <button id="conflictSkip" class="btn btn-secondary">${t("skipArticle")}</button>
+            <button id="conflictDuplicate" class="btn btn-secondary">${t("createDuplicate")}</button>
+            <button id="conflictMerge" class="btn btn-primary">${t("mergeToLatest")}</button>
+            <button id="conflictCancel" class="btn btn-quiet">${t("cancelButton")}</button>
+          </div>
+        </div>
+      `;
+      document.body.appendChild(modal);
+      applyI18n();
+      modal.querySelector("#conflictMerge").focus();
+
+      modal.querySelector("#conflictSkip").onclick = () => { modal.remove(); resolve("skip"); };
+      modal.querySelector("#conflictDuplicate").onclick = () => { modal.remove(); resolve("duplicate"); };
+      modal.querySelector("#conflictMerge").onclick = () => {
+        modal.remove();
+        // Merge: update existing with incoming data
+        resolve("merge");
+      };
+      modal.querySelector("#conflictCancel").onclick = () => { modal.remove(); resolve("cancel"); };
+      modal.onclick = (e) => { if (e.target === modal) { modal.remove(); resolve("cancel"); } };
+    });
+  }
+
+  function renderImportPreview(preview) {
+    const t = (key, params) => window.I18N.t(key, params);
+    const isNew = preview.isNewCollection;
+
+    let html = `
+      <div class="import-preview">
+        <div class="transfer-hero">
+          <div class="transfer-hero-icon" aria-hidden="true">↓</div>
+          <div><div class="transfer-hero-title">${escapeHtml(preview.collectionName)}</div><div class="transfer-hero-subtitle">${isNew ? t("addToMyLibrary") : t("importUpdateExistingList")}</div></div>
+        </div>
+        ${renderTransferMetrics(pendingImportPackage)}
+        <div class="preview-section">
+          <div class="preview-title">${isNew ? t("importPreviewNewCollection", { collectionName: preview.collectionName }) : t("importPreviewExistingCollection", { collectionName: preview.collectionName })}</div>
+          <div class="preview-stats">${t("importPreviewStats", { articleCount: preview.articleCount, notesCount: preview.newNotes + preview.updatedNotes, tagsCount: preview.newTags.length + preview.existingTags.length })}</div>
+        </div>
+        ${renderSharedChipsHtml() ? `<div class="preview-section">
+          <div class="preview-title">${t("sharedWithYou")}</div>
+          <div class="preview-chips">${renderSharedChipsHtml()}</div>
+        </div>` : ""}
+    `;
+
+    if (!isNew) {
+      html += `
+        <div class="preview-section">
+          <div class="preview-title">${t("importPreviewChangesTitle")}</div>
+          <div class="preview-changes">
+            ${preview.newArticles > 0 ? `<div class="change-item change-new">${t("importPreviewNewArticles", { count: preview.newArticles })}</div>` : `<div class="change-item change-skipped">${t("noNewArticles")}</div>`}
+            ${preview.updatedNotes > 0 ? `<div class="change-item change-updated">${t("importPreviewUpdatedNotes", { count: preview.updatedNotes })}</div>` : ""}
+            ${preview.newTags.length > 0 ? `<div class="change-item change-new">${t("importPreviewNewTags", { count: preview.newTags.length })}</div>` : ""}
+          </div>
+        </div>
+      `;
+    }
+
+    html += `
+        <div class="preview-section privacy-note">
+          <strong>${t("localOnly")}</strong>
+          <div>${t("noServerInvolved")}</div>
+        </div>
+      </div>
+    `;
+
+    importModalBody.innerHTML = html;
+    applyI18n();
+
+    if (isNew) {
+      importConfirmBtn.classList.remove("hidden");
+      importMergeBtn.classList.add("hidden");
+      importConfirmBtn.textContent = t("addToMyLibrary");
+    } else {
+      importConfirmBtn.classList.remove("hidden");
+      importMergeBtn.classList.remove("hidden");
+      importConfirmBtn.textContent = t("importCreateNewList");
+      importMergeBtn.textContent = t("importUpdateExistingList");
+    }
+  }
+
+  async function handleImportConfirm() {
+    if (!pendingImportPackage) return;
+    try {
+      setButtonBusy(importConfirmBtn, true, t("importingNow"));
+      await performImport(pendingImportPackage, false);
+      closeImportModal();
+      await loadAll();
+      showToast(t("importSuccess"), "success");
+    } catch (err) {
+      showToast(t("importFailed") + ": " + err.message, "error");
+    } finally {
+      setButtonBusy(importConfirmBtn, false);
+    }
+  }
+
+  async function handleImportMerge() {
+    if (!pendingImportPackage) return;
+    try {
+      setButtonBusy(importMergeBtn, true, t("importingNow"));
+      await performImport(pendingImportPackage, true);
+      closeImportModal();
+      await loadAll();
+      showToast(t("mergeSuccess"), "success");
+    } catch (err) {
+      showToast(t("mergeFailed") + ": " + err.message, "error");
+    } finally {
+      setButtonBusy(importMergeBtn, false);
+    }
+  }
+
+  function closeImportModal() {
+    importModal.classList.add("hidden");
+    pendingImportPackage = null;
+    pendingImportPreview = null;
+    importConfirmAction = null;
+  }
+
+  async function performImport(packageData, isMerge) {
+    const manifest = packageData.manifest;
+    const collectionData = packageData.collection;
+    const articlesData = packageData.articles;
+
+    const existingList = await getListByCollectionId(manifest.collectionId);
+    const allLocalArticles = await getArticles();
+    const localArticles = existingList
+      ? allLocalArticles.filter((article) => article.listId === existingList.id)
+      : [];
+
+    if (isMerge && existingList) {
+      const result = window.MergeService.mergeCollection(existingList, collectionData, articlesData, localArticles, {
+        preferLocalContent: true,
+        preferImportedSummary: true,
+      });
+
+      await updateList(existingList.id, { name: result.list.name });
+
+      const updates = result.articles.filter((article) => localArticles.some((local) => local.id === article.id));
+      const additions = result.articles.filter((article) => !localArticles.some((local) => local.id === article.id));
+      await applyArticleImport(existingList.id, updates, additions);
+    } else {
+      const newList = await addList(collectionData.name);
+      try {
+        await updateList(newList.id, { collectionId: collectionData.collectionId, description: collectionData.description });
+        await applyArticleImport(newList.id, [], articlesData);
+      } catch (error) {
+        await deleteList(newList.id);
+        throw error;
+      }
+    }
+  }
+
+  function escapeHtml(text) {
+    const div = document.createElement("div");
+    div.textContent = text;
+    return div.innerHTML;
+  }
+
   /* ---------- Events ---------- */
 
   if (isFull) {
@@ -1421,9 +2511,59 @@
   }
 
   saveBtn.addEventListener("click", saveCurrentArticle);
-  addListBtn.addEventListener("click", onAddList);
-  newListName.addEventListener("keydown", (e) => { if (e.key === "Enter") onAddList(); });
-  exportBtn.addEventListener("click", exportExcel);
+
+  // New list inline
+  newListBtn.addEventListener("click", () => {
+    newListInline.classList.remove("hidden");
+    newListBtn.classList.add("hidden");
+    newListName.focus();
+    newListName.value = "";
+  });
+  cancelNewListBtn.addEventListener("click", () => {
+    newListInline.classList.add("hidden");
+    newListBtn.classList.remove("hidden");
+  });
+  confirmNewListBtn.addEventListener("click", async () => {
+    const name = newListName.value.trim();
+    if (!name) return;
+    const created = await addList(name);
+    await setSetting("activeListId", created.id);
+    newListName.value = "";
+    newListInline.classList.add("hidden");
+    newListBtn.classList.remove("hidden");
+    await loadAll();
+  });
+  newListName.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      confirmNewListBtn.click();
+    } else if (e.key === "Escape") {
+      cancelNewListBtn.click();
+    }
+  });
+
+  // Export dropdown
+  exportBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    const isOpen = exportDropdownMenu.classList.toggle("show");
+    exportBtn.setAttribute("aria-expanded", String(isOpen));
+  });
+  exportExcelBtn.addEventListener("click", () => {
+    exportDropdownMenu.classList.remove("show");
+    exportBtn.setAttribute("aria-expanded", "false");
+    exportExcel();
+  });
+  exportPackageBtn.addEventListener("click", () => {
+    exportDropdownMenu.classList.remove("show");
+    exportBtn.setAttribute("aria-expanded", "false");
+    openArticleSelectModal();
+  });
+
+  document.addEventListener("click", () => {
+    exportDropdownMenu.classList.remove("show");
+    exportBtn.setAttribute("aria-expanded", "false");
+  });
+
   saveApiBtn.addEventListener("click", () => saveAiSettings().catch(showStorageError));
   aiToggle.addEventListener("change", () => setSetting("autoSummary", aiToggle.checked).catch(showStorageError));
   loadModelsBtn.addEventListener("click", () => {
@@ -1480,8 +2620,135 @@
     render();
   });
 
+  importBtn.addEventListener("click", openImportModal);
+
+  // Share modal events - ensure elements exist before attaching
+  if (shareNativeBtn) shareNativeBtn.addEventListener("click", () => handleShareCollection("native"));
+  if (shareDownloadBtn) shareDownloadBtn.addEventListener("click", () => handleShareCollection("download"));
+  if (shareCancelBtn) shareCancelBtn.addEventListener("click", closeShareModal);
+  if (shareModal) shareModal.addEventListener("click", (e) => { if (e.target === shareModal) closeShareModal(); });
+
+  if (shareArticleNativeBtn) shareArticleNativeBtn.addEventListener("click", () => handleShareArticle("native"));
+  if (shareArticleDownloadBtn) shareArticleDownloadBtn.addEventListener("click", () => handleShareArticle("download"));
+  if (shareArticleCancelBtn) shareArticleCancelBtn.addEventListener("click", closeShareArticleModal);
+  if (shareArticleModal) shareArticleModal.addEventListener("click", (e) => { if (e.target === shareArticleModal) closeShareArticleModal(); });
+
+  shareReadyCopyBtn.addEventListener("click", async () => {
+    if (!shareReadyInstructions) return;
+    const copied = await window.ShareService.copyToClipboard(shareReadyInstructions);
+    if (copied.success) {
+      shareReadyFeedback.classList.add("visible");
+      clearTimeout(shareReadyFeedbackTimer);
+      shareReadyFeedbackTimer = setTimeout(() => shareReadyFeedback.classList.remove("visible"), 1500);
+    } else {
+      showToast(t("copyFailed"), "error");
+    }
+  });
+  shareReadyEmailBtn.addEventListener("click", () => {
+    const attachNote = t("emailShareAttachNote", { fileName: shareReadyFileName });
+    const body = shareReadyFileName
+      ? attachNote + "\n\n" + shareReadyInstructions
+      : shareReadyInstructions;
+    window.ShareService.openEmailFallback(t("emailShareSubject"), body);
+    closeShareReadyModal();
+  });
+  if (shareReadyModal) shareReadyModal.addEventListener("click", (e) => { if (e.target === shareReadyModal) closeShareReadyModal(); });
+
+  researchPackCreateBtn.addEventListener("click", handleCreateResearchPack);
+  researchPackCancelBtn.addEventListener("click", closeResearchPackModal);
+  researchPackModal.addEventListener("click", (e) => { if (e.target === researchPackModal) closeResearchPackModal(); });
+
+  importConfirmBtn.addEventListener("click", () => {
+    if (importConfirmAction) {
+      importConfirmAction();
+    } else {
+      handleImportConfirm();
+    }
+  });
+  importMergeBtn.addEventListener("click", handleImportMerge);
+  importCancelBtn.addEventListener("click", closeImportModal);
+  importModal.addEventListener("click", (e) => { if (e.target === importModal) closeImportModal(); });
+
+  selectAllBtn.addEventListener("click", selectAllArticles);
+  deselectAllBtn.addEventListener("click", deselectAllArticles);
+  articleSelectConfirmBtn.addEventListener("click", confirmArticleSelection);
+  articleSelectCancelBtn.addEventListener("click", closeArticleSelectModal);
+  articleSelectModal.addEventListener("click", (e) => { if (e.target === articleSelectModal) closeArticleSelectModal(); });
+
+  /* Toast notification system */
+  const TOAST_ICONS = {
+    success: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" aria-hidden="true"><path d="M20 6 9 17l-5-5" /></svg>',
+    error: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" aria-hidden="true"><path d="M12 8v5" /><path d="M12 16.5h.01" /></svg>',
+    info: '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="17" height="17" aria-hidden="true"><path d="M12 11v5" /><path d="M12 7.5h.01" /></svg>',
+  };
+
+  function setButtonBusy(button, busy, label) {
+    if (!button) return;
+    if (busy) {
+      if (!button.dataset.idleHtml) button.dataset.idleHtml = button.innerHTML;
+      button.disabled = true;
+      button.setAttribute("aria-busy", "true");
+      if (label) button.textContent = label;
+    } else {
+      button.disabled = false;
+      button.removeAttribute("aria-busy");
+      if (button.dataset.idleHtml) {
+        button.innerHTML = button.dataset.idleHtml;
+        delete button.dataset.idleHtml;
+      }
+    }
+  }
+
+  function showToast(message, type = "info", actionLabel = null, actionCallback = null) {
+    let container = document.getElementById("toastContainer");
+    if (!container) {
+      container = document.createElement("div");
+      container.id = "toastContainer";
+      container.className = "toast-container";
+      document.body.appendChild(container);
+    }
+    const toast = document.createElement("div");
+    toast.className = `toast toast-${type}`;
+    const icon = document.createElement("span");
+    icon.className = "toast-icon";
+    icon.innerHTML = TOAST_ICONS[type] || TOAST_ICONS.info;
+    const messageEl = document.createElement("span");
+    messageEl.className = "toast-message";
+    messageEl.textContent = String(message || "");
+    toast.append(icon, messageEl);
+    if (actionLabel) {
+      const action = document.createElement("button");
+      action.className = "toast-action";
+      action.dataset.toastAction = "";
+      action.textContent = String(actionLabel);
+      toast.appendChild(action);
+    }
+    const close = document.createElement("button");
+    close.className = "toast-close";
+    close.dataset.toastClose = "";
+    close.setAttribute("aria-label", t("close"));
+    close.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>';
+    toast.appendChild(close);
+    container.appendChild(toast);
+    if (actionLabel && actionCallback) {
+      toast.querySelector("[data-toast-action]").addEventListener("click", () => {
+        actionCallback();
+        dismissToast(toast);
+      });
+    }
+    toast.querySelector("[data-toast-close]").addEventListener("click", () => dismissToast(toast));
+    toast._hideTimer = setTimeout(() => dismissToast(toast), 5000);
+  }
+
+  function dismissToast(toast) {
+    clearTimeout(toast._hideTimer);
+    if (toast.classList.contains("toast-leaving")) return;
+    toast.classList.add("toast-leaving");
+    setTimeout(() => toast.remove(), 250);
+  }
+
   function showStorageError(error) {
-    alert(t("errorPrefix") + error.message);
+    showToast(t("errorPrefix") + error.message, "error");
   }
 
   loadAll().then(() => {

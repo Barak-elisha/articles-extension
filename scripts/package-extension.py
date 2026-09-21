@@ -14,6 +14,7 @@ if not re.fullmatch(r'\d+(?:\.\d+){0,3}', version):
 files = {
     'manifest.json', 'background.js', 'sidepanel.html', 'sidepanel.css',
     'sidepanel.js', 'storage.js', 'i18n.js', 'sanitize.js', 'highlighter.js', 'excel-export.js',
+    'package-service.js', 'share-service.js', 'merge-service.js',
     'LICENSE', 'lib/jszip.min.js', 'lib/cpexcel.js', 'lib/xlsx-js-style.min.js',
     'lib/THIRD_PARTY_LICENSES.md', 'icons/ui/LICENSE',
     *manifest['icons'].values(), *manifest['action']['default_icon'].values(),

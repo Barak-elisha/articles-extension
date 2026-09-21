@@ -256,6 +256,22 @@
     assert(rejected, 'Missing list was accepted');
     assert(!(await getArticles()).some(a => a.listId === list.id), 'Orphan article remains');
   });
+  await test('Atomic package import stores imported AI summaries and keeps updates in the target list', async () => {
+    const list = await addList('QA import transaction');
+    try {
+      const existing = await addArticle({listId:list.id,title:'Existing',content:'Local',url:'https://example.com/existing',summary:'Local summary'});
+      await applyArticleImport(list.id, [{...existing, listId:'wrong-list', summary:'Imported AI summary', summaryHtml:'<p>Imported <b>AI summary</b></p>', summaryHtmlSource:'Imported AI summary'}], [
+        {title:'Imported article',content:'Shared',url:'https://example.com/imported',summary:'Second AI summary',summaryHtml:'',summaryHtmlSource:'',chat:[{role:'assistant',text:'Imported chat'}]},
+      ]);
+      const stored = await getArticlesByList(list.id);
+      assert(stored.length === 2, 'Import transaction did not store every article');
+      const updated = stored.find(article => article.id === existing.id);
+      const added = stored.find(article => article.id !== existing.id);
+      assert(updated?.summary === 'Imported AI summary' && updated.summaryHtmlSource === updated.summary, 'Updated AI summary was lost');
+      assert(updated.listId === list.id, 'Update escaped the destination list');
+      assert(added?.summary === 'Second AI summary' && added.chat?.[0]?.text === 'Imported chat', 'New article AI data was lost');
+    } finally { await deleteList(list.id); }
+  });
   const failures=results.filter(r=>r.status==='FAIL').length;
   document.querySelector('#results').textContent += `\n\n${results.length-failures}/${results.length} passed`;
   document.body.dataset.complete='true'; document.body.dataset.failures=String(failures);

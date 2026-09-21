@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "Article Saver",
-  "version": "1.1.0",
-  "description": "Save articles to lists, take notes, generate AI summaries, chat about your reading, and export to Excel.",
+  "version": "1.2.0",
+  "description": "Save articles to lists, take notes, generate AI summaries, chat about your reading, export to Excel, and share research with portable .articlesaver packages.",
   "permissions": [
     "sidePanel",
     "activeTab",

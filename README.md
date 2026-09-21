@@ -187,6 +187,9 @@ The export pipeline:
 | `storage.js` | IndexedDB layer (lists, articles, settings) |
 | `i18n.js` | Hebrew/English dictionaries and translation helpers |
 | `sanitize.js` | Self-contained HTML sanitizer (allowlist) for untrusted content |
+| `package-service.js` | Portable `.articlesaver` package format (build, validate, parse) |
+| `share-service.js` | Native sharing, download fallback, and instruction copying |
+| `merge-service.js` | Collection merge logic with stable IDs and conflict resolution |
 | `sidepanel.html/css/js` | The panel UI and the full-window mode |
 | `excel-export.js` | Excel export including rich-text styling, links and validation |
 | `lib/` | Local libraries: `jszip.min.js`, `xlsx-js-style.min.js`, `cpexcel.js` |
@@ -196,7 +199,7 @@ The export pipeline:
 | `SECURITY.md` | How to report security vulnerabilities privately |
 | `CONTRIBUTING.md` | Contribution guidelines (local-first, no unneeded deps) |
 
-Scripts are loaded in `sidepanel.html` in this order (it matters): `jszip` → `cpexcel` → `xlsx-js-style` → `storage` → `i18n` → `sanitize` → `highlighter` → `excel-export` → `sidepanel`.
+Scripts are loaded in `sidepanel.html` in this order (it matters): `jszip` → `cpexcel` → `xlsx-js-style` → `storage` → `i18n` → `sanitize` → `highlighter` → `excel-export` → `package-service` → `share-service` → `merge-service` → `sidepanel`.
 
 ### Messaging between the panel and the background
 
@@ -210,14 +213,19 @@ Scripts are loaded in `sidepanel.html` in this order (it matters): `jszip` → `
 
 The extension requests HTTP/HTTPS host access for user-triggered article extraction. `tabs` supports selecting the last web tab while full-window mode is focused. It does not automatically scan browsing history; `storage` permission is unnecessary because data uses IndexedDB. When the focused tab is the extension's own side panel, `extractActiveTab` falls back to the most recently used HTTP tab, so saving an article works while the panel is focused.
 
-### IndexedDB schema (`article-saver-db`, version 1)
+### IndexedDB schema (`article-saver-db`, version 2)
 
-- **lists** — `{ id, name, createdAt }` (index `name`)
-- **articles** — `{ id, listId, title, content, url, savedAt, summary?, notes?, chat? }` (indexes `listId`, `savedAt`)
+- **lists** — `{ id, name, createdAt, collectionId }` (index `name`)
+- **articles** — `{ id, listId, title, content, url, savedAt, summary?, notes?, chat?, doi?, authors?, publication?, tags?, highlights? }` (indexes `listId`, `savedAt`)
   - `content` — extracted plain text or sanitized edited HTML; `contentFormat` distinguishes `text` from `html`. Legacy records are sanitized on display.
   - `summary` — Markdown string
   - `notes` — HTML string
   - `chat` — array of `[{ role: "user"|"assistant", text }]`
+  - `doi` — Digital Object Identifier for article deduplication
+  - `authors` — Array of author names
+  - `publication` — Publication/journal name
+  - `tags` — Array of tag strings
+  - `highlights` — Array of highlight objects
 - **settings** — `{ key, value }`; keys: `activeListId`, `geminiApiKey`, `geminiModel`, `autoSummary`, `uiLang`
 
 ### Panel logic (JS — `sidepanel.js`, IIFE)
@@ -234,6 +242,17 @@ The extension requests HTTP/HTTPS host access for user-triggered article extract
 - `applyActiveRow()` — highlights `.article-item.active` based on `activeArticleId`.
 - `fitDetailToLists()` — in full mode binds `.detailBody` height to the lists column height; also runs on `resize`.
 - Re-renders on `visibilitychange` (when the panel comes to the foreground).
+
+### Sharing architecture
+
+The sharing feature is built on a reusable package layer:
+
+- **PackageService** (`package-service.js`) — versioned `.articlesaver` package format (JSON), schema validation, serialization, import preview generation.
+- **ShareService** (`share-service.js`) — native `navigator.share` with file support, download fallback (File System Access API or legacy `<a download>`), clipboard instruction copying, `mailto:` fallback.
+- **MergeService** (`merge-service.js`) — stable `collectionId` and article matching by DOI/URL, non-destructive merge with tag/note/highlight union, conflict preservation.
+- **UI** — share buttons on each collection and article, "Import shared" button in library header, Research Pack builder with multi-select.
+
+Package types: `collection`, `article`, `research-pack`. All use the same schema v1 with manifest, collection data, and articles array. Maximum 500 articles, 50 MB per package.
 
 ### CSS layout
 
@@ -272,7 +291,7 @@ The extension bundles third-party libraries locally under `lib/` (JSZip, xlsx-js
 
 This software is provided by the copyright holders and contributors **"AS IS"**, and any express or implied warranties, including, but not limited to, the implied warranties of merchantability and fitness for a particular purpose are disclaimed.
 
-In no event shall the author(s) or copyright holders be liable for any direct, indirect, incidental, special, exemplary, or consequential damages (including, but not limited to, procurement of substitute goods or services; loss of use, data, or profits; business interruption; API billing overages; or system malfunctions) however caused and on any theory of liability, whether in contract, strict liability, or tort (including negligence or otherwise) arising in any way out of the use of this software, even if advised of the possibility of such damage.
+In no event shall the author(s) or copyright holders be liable for any direct, indirect, incidental, special, exemplary, or consequential damages (including, but not limited to, procurement of substitute goods or services; loss of use, data, or profits; business interruption; API billing overages; or system malfunctions) however caused and however caused, on any theory of liability, whether in contract, strict liability, or tort (including negligence or otherwise) arising in any way out of the use of this software, even if advised of the possibility of such damage.
 
 ## Disclaimer
 
@@ -292,6 +311,18 @@ By using this extension you acknowledge that:
 - **Issues:** Feedback, bug reports, and feature requests are welcome via [GitHub Issues](https://github.com/Barak-elisha/articles-extension/issues).
 
 ## Changelog
+
+### v1.2.0
+- **Sharing & Growth Loop** — Share collections, single articles, and custom Research Packs as portable `.articlesaver` packages.
+- **Native sharing** — Uses `navigator.share` with file support when available; universal download fallback (File System Access API or legacy `<a download>`); copy-to-clipboard sharing instructions.
+- **Local-first, privacy-preserving** — Packages generated and imported entirely locally; no Article Saver server involved; no accounts, no email infrastructure, no tracking.
+- **Stable collection IDs** — UUID v4 `collectionId` persisted per list; survives renames; enables update detection and safe merging.
+- **Import with preview** — Shows article/tag/note counts and changes before modifying local data; supports new collection import and existing collection merge.
+- **Smart deduplication** — Matches articles by DOI first, then normalized URL; merges tags, notes, highlights non-destructively; preserves both versions on conflicts.
+- **Research Packs** — Multi-select articles from a list, name the pack, choose what to include (articles/tags/notes/highlights), share as a standalone package.
+- **Recipient growth flow** — Clear installation + import instructions in every shared package; no referral codes, no paywalls.
+- **Versioned package format** — Schema v1 with manifest, collection data, articles array; validated on import; rejects malformed/unsupported packages safely.
+- **Automated tests** — Package generation/validation, import/merge, share fallback, stable ID migration covered.
 
 ### v1.1.0
 - Also available for one-click installation on the Chrome Web Store: [https://chromewebstore.google.com/detail/article-saver/coagndppgjemdfaakejdclhhgmjppdlf]
