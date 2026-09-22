@@ -5,7 +5,7 @@
 # Article Saver
 [![Chrome Web Store](https://img.shields.io/chrome-web-store/v/coagndppgjemdfaakejdclhhgmjppdlf?logo=googlechrome&color=blue)](https://chromewebstore.google.com/detail/article-saver/coagndppgjemdfaakejdclhhgmjppdlf)
 
-A Chrome extension (Manifest V3, `version 1.1.0`) for saving articles to lists, generating AI summaries, chatting with a Gemini model about each article, taking rich notes, and exporting everything to Excel.
+A Chrome extension (Manifest V3, `version 1.2.0`) for saving articles to lists, generating AI summaries, chatting with a Gemini model about each article, taking rich notes, and exporting everything to Excel.
 
 - **Local library** — articles, notes, chats and settings are stored in browser IndexedDB. Optional AI sends article text and chat to Google using your API key; see [Privacy](PRIVACY.md).
 - Official repository: `https://github.com/Barak-elisha/articles-extension.git` (branch `main`).
@@ -18,7 +18,7 @@ A Chrome extension (Manifest V3, `version 1.1.0`) for saving articles to lists, 
 
 The extension name, Chrome toolbar title and description are in English. On a fresh installation, the interface starts in English with a left-to-right layout, English AI responses and English Excel headers. Dates follow the selected interface language. Automatic AI summaries are off by default; saving articles and taking notes do not require an API key.
 
-Hebrew is available as an optional language in Settings. An existing saved language choice is preserved. Article text remains in its original language.
+The interface is available in 20 languages: English, Hebrew, Chinese, Hindi, Spanish, Arabic, French, Portuguese, German, Italian, Russian, Dutch, Czech, Polish, Japanese, Korean, Turkish, Indonesian, Vietnamese and Thai. Hebrew enables right-to-left layout. An existing saved language choice is preserved. Article text remains in its original language.
 
 The current release exports Excel workbooks; PDF export is not implemented.
 
@@ -38,7 +38,7 @@ The current release exports Excel workbooks; PDF export is not implemented.
 - **Full-window mode** — a responsive workspace on a full screen: lists | summary+notes+chat | full text.
 - **Excel export** — an "All articles" sheet plus one sheet per list, with pale green headers, embedded green icons, rich text, clickable links, an APA citation and an AI-chat column.
 - **AI settings** — API key from Google AI Studio; when you click Refresh models the extension fetches compatible Gemini models from Google's API and lets you pick one from a dropdown (default: `gemini-2.5-flash`).
-- **Interface language** — switch between English and Hebrew in Settings (English is the default; the choice is persisted and also drives the AI output language and the Excel headers).
+- **Interface language** — switch between 20 languages in Settings (English is the default; the choice is persisted and also drives the AI output language and the Excel headers).
 
 <p align="center">
   <img src="Screenshots/New%201/article_saver_one_click_summary_EXACT_1280x800.png" alt="Saving an article from Chrome with an optional AI summary" width="800" />
@@ -68,8 +68,8 @@ Install Article Saver directly from the [Chrome Web Store](https://chromewebstor
 1. **Create a list** in the "Create a list" section.
 2. Choose an active list and click **"Save current article"**.
 3. (Optional) In Settings → "AI settings", paste an **API key** from Google AI Studio and click **Save key**. Click **Refresh models** to query Google for compatible generation models; choose a model and save. Saving a key or opening the panel does not make a network request.
-4. (Optional) In Settings → "Interface language", choose **English** or **Hebrew** (default: English).
-5. Click **"Export to Excel"** to export only the selected list, using its name as the filename (`List name.xlsx`; characters unsupported in filenames are replaced with underscores). Choose **"All lists"** to export the entire library (`articles.xlsx` by default; the filename is localized when Hebrew is selected).
+4. (Optional) In Settings → "Interface language", choose the interface language (default: English).
+5. Click **"Export to Excel"** to export only the selected list, using its name as the filename (`List name.xlsx`; characters unsupported in filenames are replaced with underscores). Choose **"All lists"** to export the entire library (`articles.xlsx` by default; the filename is localized in the selected interface language).
 
 ### Viewing and handling an article
 
@@ -119,9 +119,9 @@ An API key is required only for AI. The "Include an AI summary" checkbox is off 
 
 English is the default for every new installation and whenever a stored language setting is missing or unsupported. The extension does not automatically switch to the browser or operating-system language.
 
-To change the language, open **Settings → Interface language** and select **English** or **Hebrew**. This preference is saved and controls interface labels, dates, AI response language and Excel headers. Hebrew enables right-to-left layout. Switching the interface language does not translate previously saved articles, notes or AI responses.
+To change the language, open **Settings → Interface language** and select any of the 20 supported languages. This preference is saved and controls interface labels, dates, AI response language and Excel headers. Hebrew enables right-to-left layout. Switching the interface language does not translate previously saved articles, notes or AI responses.
 
-After updating an unpacked extension, click **Reload** on its card in `chrome://extensions` and reopen the panel to refresh its name, description and interface. If an existing installation opens in Hebrew, select English in Settings; reloading preserves saved preferences.
+After updating an unpacked extension, click **Reload** on its card in `chrome://extensions` and reopen the panel to refresh its name, description and interface. Reloading preserves saved preferences.
 
 
 ### Security & API key
@@ -167,7 +167,7 @@ Columns in the "All articles" sheet (and in the per-list sheets):
 | APA citation | `buildApaCitation` — APA 7th edition webpage format: `Title. (n.d.). Site Name. Retrieved Month D, YYYY, from URL` (retrieval date uses the saved date; `(n.d.)` when no publication date) |
 | URL | active hyperlink |
 | Saved on | `a.savedAt` → numeric Excel date/time, displayed as `dd/mm/yyyy hh:mm` |
-| Chat with AI | `a.chat` formatted as `Me: …` / `AI: …` (with localized speaker labels when Hebrew is selected), with rich-text bold/italic, real bullets, paragraph breaks, and bold colored speaker labels (no raw Markdown markers) |
+| Chat with AI | `a.chat` formatted as `Me: …` / `AI: …` (with localized speaker labels), with rich-text bold/italic, real bullets, paragraph breaks, and bold colored speaker labels (no raw Markdown markers) |
 
 Excel exports store Saved on as a numeric date/time (`dd/mm/yyyy hh:mm`), suitable for sorting and date formulas. Highlights from current AI summaries and Notes are underlined in the main sheets. Because Excel rich text does not support a background fill for part of a cell, an additional Highlights sheet stores each marked passage in a separate editable cell with its original background color. The sheet is omitted when nothing is highlighted. Regenerated summaries do not reuse stale highlights.
 
@@ -185,7 +185,7 @@ The export pipeline:
 | `manifest.json` | Extension configuration and permissions |
 | `background.js` | Service worker — article extraction from the active tab and Gemini calls |
 | `storage.js` | IndexedDB layer (lists, articles, settings) |
-| `i18n.js` | Hebrew/English dictionaries and translation helpers |
+| `i18n.js` | 20-language dictionaries and translation helpers |
 | `sanitize.js` | Self-contained HTML sanitizer (allowlist) for untrusted content |
 | `package-service.js` | Portable `.articlesaver` package format (build, validate, parse) |
 | `share-service.js` | Native sharing, download fallback, and instruction copying |
@@ -252,7 +252,7 @@ The sharing feature is built on a reusable package layer:
 - **MergeService** (`merge-service.js`) — stable `collectionId` and article matching by DOI/URL, non-destructive merge with tag/note/highlight union, conflict preservation.
 - **UI** — share buttons on each collection and article, "Import shared" button in library header, Research Pack builder with multi-select.
 
-Package types: `collection`, `article`, `research-pack`. All use the same schema v1 with manifest, collection data, and articles array. Maximum 500 articles, 50 MB per package.
+Package types: `collection`, `article`, `research-pack`. All use the same schema v1 with manifest, collection data, and articles array. Maximum 500 articles, 50 MB per package. Each type renders its own install link in the sharing instructions, tagged with a matching campaign (`shared_collection`, `shared_article`, `research_pack`).
 
 ### CSS layout
 
@@ -269,7 +269,7 @@ See [regression test instructions](tests/README.md) and [pre-store review](PRE_R
 
 ## Chrome Web Store package
 
-Run `python3 scripts/package-extension.py` from the repository root to create `dist/article-saver-1.1.0.zip` and its SHA-256 checksum. The archive contains the manifest at its root, runtime code, local libraries, icons and required license notices. Tests, screenshots, development scripts, Git metadata and machine-specific files are excluded. Generated archives are ignored by Git.
+Run `python3 scripts/package-extension.py` from the repository root to create `dist/article-saver-1.2.0.zip` and its SHA-256 checksum. The archive contains the manifest at its root, runtime code, local libraries, icons and required license notices. Tests, screenshots, development scripts, Git metadata and machine-specific files are excluded. Generated archives are ignored by Git.
 
 Upload this ZIP to the existing extension's **Package** page in the Chrome Developer Dashboard. Uploading a draft is separate from submitting it for review. Check [the pre-release review](PRE_RELEASE_REVIEW.md) and complete the remaining verification and listing requirements before submission.
 
@@ -320,8 +320,9 @@ By using this extension you acknowledge that:
 - **Import with preview** — Shows article/tag/note counts and changes before modifying local data; supports new collection import and existing collection merge.
 - **Smart deduplication** — Matches articles by DOI first, then normalized URL; merges tags, notes, highlights non-destructively; preserves both versions on conflicts.
 - **Research Packs** — Multi-select articles from a list, name the pack, choose what to include (articles/tags/notes/highlights), share as a standalone package.
-- **Recipient growth flow** — Clear installation + import instructions in every shared package; no referral codes, no paywalls.
+- **Recipient growth flow** — Clear installation + import instructions in every shared package, with type-specific install links (shared collection / article / research pack); no referral codes, no paywalls.
 - **Versioned package format** — Schema v1 with manifest, collection data, articles array; validated on import; rejects malformed/unsupported packages safely.
+- **20 interface languages** — Added Portuguese, German, Italian, Russian, Dutch, Czech, Polish, Japanese, Korean, Turkish, Indonesian, Vietnamese and Thai (on top of English, Hebrew, Chinese, Hindi, Spanish, Arabic and French); the AI chat always answers in the selected app language.
 - **Automated tests** — Package generation/validation, import/merge, share fallback, stable ID migration covered.
 
 ### v1.1.0

@@ -222,10 +222,10 @@
   const shareCollectionStats = $("#shareCollectionStats");
   const shareCollectionOptionsGrid = $("#shareCollectionOptionsGrid");
   const shareCollectionOptionsSummary = $("#shareCollectionOptionsSummary");
+  const shareCollectionNote = $("#shareCollectionNote");
   const shareMessageContent = $("#shareMessageContent");
   let shareCopyBtn = $("#shareCopyBtn");
   const shareNativeBtn = $("#shareNativeBtn");
-  const shareDownloadBtn = $("#shareDownloadBtn");
   const shareCancelBtn = $("#shareCancelBtn");
 
   const shareArticleModal = $("#shareArticleModal");
@@ -235,14 +235,15 @@
   const shareArticleMessageContent = $("#shareArticleMessageContent");
   let shareArticleCopyBtn = $("#shareArticleCopyBtn");
   const shareArticleNativeBtn = $("#shareArticleNativeBtn");
-  const shareArticleDownloadBtn = $("#shareArticleDownloadBtn");
   const shareArticleCancelBtn = $("#shareArticleCancelBtn");
+  const shareArticleNote = $("#shareArticleNote");
 
   const shareReadyModal = $("#shareReadyModal");
   const shareReadyTitle = $("#shareReadyTitle");
   const shareReadyFile = $("#shareReadyFile");
   const shareReadyCopyBtn = $("#shareReadyCopyBtn");
   const shareReadyEmailBtn = $("#shareReadyEmailBtn");
+  const shareReadyCancelBtn = $("#shareReadyCancelBtn");
   const shareReadyFeedback = $("#shareReadyModal [data-feedback]");
   let shareReadyInstructions = "";
   let shareReadyFileName = "";
@@ -252,12 +253,9 @@
   const researchPackModal = $("#researchPackModal");
   const researchPackName = $("#researchPackName");
   const researchPackDescription = $("#researchPackDescription");
-  const researchPackIncludes = $("#researchPackIncludes");
-  const rpIncludeTags = $("#rpIncludeTags");
-  const rpIncludeNotes = $("#rpIncludeNotes");
-  const rpIncludeHighlights = $("#rpIncludeHighlights");
-  const rpIncludeAISummary = $("#rpIncludeAISummary");
-  const rpIncludeAIChat = $("#rpIncludeAIChat");
+  const researchPackOptionsGrid = $("#researchPackOptionsGrid");
+  const researchPackMessageContent = $("#researchPackMessageContent");
+  let researchPackCopyBtn = $("#researchPackCopyBtn");
   const researchPackArticleCount = $("#researchPackArticleCount");
   const researchPackCreateBtn = $("#researchPackCreateBtn");
   const researchPackCancelBtn = $("#researchPackCancelBtn");
@@ -1541,6 +1539,9 @@
       tagsCount: new Set(listArticles.flatMap(a => a.tags || [])).size,
     });
 
+    shareCollectionNote.value = list.description || "";
+    shareCollectionNote.classList.remove("share-note-filled");
+
     // Render options
     const options = [
       { id: "scIncludeNotes", key: "shareOptionsNotes", checked: true },
@@ -1558,7 +1559,7 @@
     `).join("");
 
     // Render message preview
-    renderShareMessagePreview("collection", list.name);
+    renderShareMessagePreview("collection", list.name, shareCollectionNote.value);
 
     // Update summary
     updateShareCollectionSummary(listArticles);
@@ -1605,7 +1606,7 @@
     }
 
     // Re-render message preview with current options
-    renderShareMessagePreview("collection", lists.find(l => l.id === shareCollectionId)?.name || "");
+    renderShareMessagePreview("collection", lists.find(l => l.id === shareCollectionId)?.name || "", shareCollectionNote.value);
   }
 
   function closeShareModal() {
@@ -1613,7 +1614,7 @@
     shareCollectionId = null;
   }
 
-  async function handleShareCollection(method) {
+  async function handleShareCollection() {
     if (!shareCollectionId) return;
     const list = lists.find((l) => l.id === shareCollectionId);
     if (!list) return;
@@ -1625,14 +1626,15 @@
     const includeAIChat = checkboxes[2]?.checked ?? true;
     const includeTags = checkboxes[3]?.checked ?? true;
     const includeHighlights = checkboxes[4]?.checked ?? true;
+    const description = shareCollectionNote.value.trim();
 
     try {
-      setButtonBusy(method === "download" ? shareDownloadBtn : shareNativeBtn, true, t("preparingExport"));
+      setButtonBusy(shareNativeBtn, true, t("preparingExport"));
       const packageData = window.PackageService.buildPackage({
         packageType: "collection",
         list,
         articles: listArticles,
-        description: list.description,
+        description,
         includeNotes,
         includeTags,
         includeHighlights,
@@ -1645,21 +1647,9 @@
 
       closeShareModal();
 
-      if (method === "copy") {
-        const instructions = window.ShareService.getShareInstructions("collection", list.name);
-        const copied = await window.ShareService.copyToClipboard(instructions);
-        if (copied.success) {
-          showToast(t("shareComplete"), "success", t("copy"), () => {
-            navigator.clipboard.writeText(instructions);
-          });
-        } else {
-          showToast(t("shareFailed") + ": " + (copied.error?.message || "Clipboard access denied"), "error");
-        }
-        return;
-      }
-
       const result = await window.ShareService.sharePackage(blob, fileName, "collection", list.name, {
-        preferNative: method === "native",
+        preferNative: true,
+        description,
       });
 
       if (result.success) {
@@ -1676,7 +1666,6 @@
       showToast(t("shareFailedFriendly"), "error");
     } finally {
       setButtonBusy(shareNativeBtn, false);
-      setButtonBusy(shareDownloadBtn, false);
     }
   }
 
@@ -1690,6 +1679,9 @@
     try { if (article.url) articleHost = new URL(article.url).hostname; } catch (e) {}
     shareArticleName.textContent = article.title;
     shareArticleStats.textContent = articleHost;
+
+    shareArticleNote.value = "";
+    shareArticleNote.classList.remove("share-note-filled");
 
     // Render options
     const options = [
@@ -1707,7 +1699,7 @@
     `).join("");
 
     // Render message preview
-    renderShareMessagePreview("article", article.title);
+    renderShareMessagePreview("article", article.title, shareArticleNote.value);
 
     // Add checkbox listeners
     shareArticleOptionsGrid.querySelectorAll("input[type=checkbox]").forEach(cb => {
@@ -1733,7 +1725,7 @@
     if (options.aiChat && article.chat?.length) parts.push(`${t("includeAIChat")}`);
 
     // Update message preview
-    renderShareMessagePreview("article", article.title);
+    renderShareMessagePreview("article", article.title, shareArticleNote.value);
   }
 
   function closeShareArticleModal() {
@@ -1741,7 +1733,7 @@
     shareArticleId = null;
   }
 
-  async function handleShareArticle(method) {
+  async function handleShareArticle() {
     if (!shareArticleId) return;
     const article = articles.find((a) => a.id === shareArticleId);
     if (!article) return;
@@ -1750,13 +1742,15 @@
     const includeHighlights = document.getElementById("saIncludeHighlights")?.checked ?? true;
     const includeAISummary = document.getElementById("saIncludeAISummary")?.checked ?? true;
     const includeAIChat = document.getElementById("saIncludeAIChat")?.checked ?? true;
+    const description = shareArticleNote.value.trim();
 
     try {
-      setButtonBusy(method === "download" ? shareArticleDownloadBtn : shareArticleNativeBtn, true, t("preparingExport"));
+      setButtonBusy(shareArticleNativeBtn, true, t("preparingExport"));
       const packageData = window.PackageService.buildPackage({
         packageType: "article",
         list: { id: "temp", name: article.title, collectionId: "temp_" + crypto.randomUUID(), createdAt: Date.now() },
         articles: [article],
+        description,
         includeNotes,
         includeHighlights,
         includeTags: false,
@@ -1769,21 +1763,9 @@
 
       closeShareArticleModal();
 
-      if (method === "copy") {
-        const instructions = window.ShareService.getShareInstructions("article", article.title);
-        const copied = await window.ShareService.copyToClipboard(instructions);
-        if (copied.success) {
-          showToast(t("shareComplete"), "success", t("copy"), () => {
-            navigator.clipboard.writeText(instructions);
-          });
-        } else {
-          showToast(t("shareFailed") + ": " + (copied.error?.message || "Clipboard access denied"), "error");
-        }
-        return;
-      }
-
       const result = await window.ShareService.sharePackage(blob, fileName, "article", article.title, {
-        preferNative: method === "native",
+        preferNative: true,
+        description,
       });
 
       if (result.success) {
@@ -1800,11 +1782,10 @@
       showToast(t("shareFailedFriendly"), "error");
     } finally {
       setButtonBusy(shareArticleNativeBtn, false);
-      setButtonBusy(shareArticleDownloadBtn, false);
     }
   }
 
-  function renderShareMessagePreview(packageType, collectionName) {
+  function renderShareMessagePreview(packageType, collectionName, description) {
     const list = lists.find(l => l.id === shareCollectionId);
     const article = articles.find(a => a.id === shareArticleId);
 
@@ -1829,22 +1810,42 @@
       };
     }
 
-    const instructions = window.ShareService.getShareInstructions(packageType, collectionName);
-    const targetContentEl = packageType === "article" ? shareArticleMessageContent : shareMessageContent;
-    const targetCopyBtn = packageType === "article" ? shareArticleCopyBtn : shareCopyBtn;
+    const instructions = window.ShareService.getShareInstructions(packageType, collectionName, description);
+    const targetContentEl = packageType === "article" ? shareArticleMessageContent
+      : packageType === "research-pack" ? researchPackMessageContent
+      : shareMessageContent;
+    const targetCopyBtn = packageType === "article" ? shareArticleCopyBtn
+      : packageType === "research-pack" ? researchPackCopyBtn
+      : shareCopyBtn;
+    const noteLabel = window.I18N.t("shareDescriptionNote");
+    const noteText = String(description || "").trim();
+    const noteTextarea = packageType === "article" ? shareArticleNote
+      : packageType === "research-pack" ? researchPackDescription
+      : shareCollectionNote;
 
     if (!targetContentEl || !targetCopyBtn) return;
 
     // Reset copy button state
     targetCopyBtn.classList.remove("copied");
 
-    // Render message as clean read-only paragraphs
-    targetContentEl.innerHTML = instructions
+    // Mirror the filled/unfilled state of the note field
+    noteTextarea?.classList.toggle("share-note-filled", !!noteText);
+
+    // Render the ready message as clean paragraphs with the sender note highlighted
+    const paragraphs = instructions
       .split(/\n{2,}/)
       .map(para => para.trim())
-      .filter(Boolean)
-      .map(para => `<p>${escapeHtml(para).replace(/\n/g, "<br>")}</p>`)
-      .join("");
+      .filter(Boolean);
+
+    targetContentEl.innerHTML = paragraphs.map(para => {
+      if (noteText && para === noteLabel) {
+        return `<p class="share-note-label-p">${escapeHtml(para)}</p>`;
+      }
+      if (noteText && para === noteText) {
+        return `<div class="share-note-box">${escapeHtml(para).replace(/\n/g, "<br>")}</div>`;
+      }
+      return `<p>${escapeHtml(para).replace(/\n/g, "<br>")}</p>`;
+    }).join("");
 
     // Add copy handler
     const newBtn = targetCopyBtn.cloneNode(true);
@@ -1852,6 +1853,8 @@
 
     if (packageType === "article") {
       shareArticleCopyBtn = newBtn;
+    } else if (packageType === "research-pack") {
+      researchPackCopyBtn = newBtn;
     } else {
       shareCopyBtn = newBtn;
     }
@@ -1877,17 +1880,38 @@
 
     researchPackName.value = "";
     researchPackDescription.value = "";
-    rpIncludeTags.checked = true;
-    rpIncludeNotes.checked = true;
-    rpIncludeHighlights.checked = true;
+    researchPackDescription.classList.remove("share-note-filled");
+
+    const options = [
+      { id: "rpIncludeNotes", key: "shareOptionsNotes", checked: true },
+      { id: "rpIncludeAISummary", key: "shareOptionsAISummary", checked: true },
+      { id: "rpIncludeAIChat", key: "shareOptionsAIChat", checked: true },
+      { id: "rpIncludeTags", key: "shareOptionsTags", checked: true },
+      { id: "rpIncludeHighlights", key: "shareOptionsHighlights", checked: true },
+    ];
+
+    if (researchPackOptionsGrid) {
+      researchPackOptionsGrid.innerHTML = options.map(opt => `
+        <label class="share-option-chip" data-option="${opt.id}">
+          <input type="checkbox" id="${opt.id}" ${opt.checked ? "checked" : ""} />
+          <span class="option-label">${t(opt.key)}</span>
+        </label>
+      `).join("");
+    }
+
     updateResearchPackCount();
+    renderResearchPackMessagePreview();
 
     researchPackModal.classList.remove("hidden");
   }
 
   function updateResearchPackCount() {
     const count = researchPackArticles.length;
-    researchPackArticleCount.textContent = t("articlesSelected", { count });
+    if (researchPackArticleCount) researchPackArticleCount.textContent = t("articlesSelected", { count });
+  }
+
+  function renderResearchPackMessagePreview() {
+    renderShareMessagePreview("research-pack", researchPackName.value.trim() || t("researchPack"), researchPackDescription.value.trim());
   }
 
   function closeResearchPackModal() {
@@ -1898,11 +1922,12 @@
   async function handleCreateResearchPack() {
     const name = researchPackName.value.trim() || t("researchPack");
     const description = researchPackDescription.value.trim();
-    const includeTags = rpIncludeTags.checked;
-    const includeNotes = rpIncludeNotes.checked;
-    const includeHighlights = rpIncludeHighlights.checked;
-    const includeAISummary = rpIncludeAISummary?.checked ?? true;
-    const includeAIChat = rpIncludeAIChat?.checked ?? true;
+    const grp = (id) => document.getElementById(id)?.checked ?? true;
+    const includeTags = grp("rpIncludeTags");
+    const includeNotes = grp("rpIncludeNotes");
+    const includeAISummary = grp("rpIncludeAISummary");
+    const includeAIChat = grp("rpIncludeAIChat");
+    const includeHighlights = grp("rpIncludeHighlights");
 
     try {
       setButtonBusy(researchPackCreateBtn, true, t("preparingExport"));
@@ -1933,6 +1958,7 @@
 
       const result = await window.ShareService.sharePackage(blob, fileName, "research-pack", name, {
         preferNative: true,
+        description,
       });
 
       if (result.success) {
@@ -2129,6 +2155,7 @@
       ? t("shareReadyFile", { fileName: shareReadyFileName })
       : "";
     shareReadyFeedback.classList.remove("visible");
+    if (shareReadyCancelBtn) shareReadyCancelBtn.textContent = t("cancelButton");
     shareReadyModal.classList.remove("hidden");
   }
 
@@ -2679,15 +2706,28 @@
   importBtn.addEventListener("click", openImportModal);
 
   // Share modal events - ensure elements exist before attaching
-  if (shareNativeBtn) shareNativeBtn.addEventListener("click", () => handleShareCollection("native"));
-  if (shareDownloadBtn) shareDownloadBtn.addEventListener("click", () => handleShareCollection("download"));
+  if (shareNativeBtn) shareNativeBtn.addEventListener("click", handleShareCollection);
   if (shareCancelBtn) shareCancelBtn.addEventListener("click", closeShareModal);
   if (shareModal) shareModal.addEventListener("click", (e) => { if (e.target === shareModal) closeShareModal(); });
 
-  if (shareArticleNativeBtn) shareArticleNativeBtn.addEventListener("click", () => handleShareArticle("native"));
-  if (shareArticleDownloadBtn) shareArticleDownloadBtn.addEventListener("click", () => handleShareArticle("download"));
+  if (shareArticleNativeBtn) shareArticleNativeBtn.addEventListener("click", handleShareArticle);
   if (shareArticleCancelBtn) shareArticleCancelBtn.addEventListener("click", closeShareArticleModal);
   if (shareArticleModal) shareArticleModal.addEventListener("click", (e) => { if (e.target === shareArticleModal) closeShareArticleModal(); });
+  if (shareReadyCancelBtn) shareReadyCancelBtn.addEventListener("click", closeShareReadyModal);
+  if (shareReadyModal) shareReadyModal.addEventListener("click", (e) => { if (e.target === shareReadyModal) closeShareReadyModal(); });
+
+  if (shareCollectionNote) {
+    shareCollectionNote.addEventListener("input", () => {
+      const list = lists.find((l) => l.id === shareCollectionId);
+      if (list) renderShareMessagePreview("collection", list.name, shareCollectionNote.value);
+    });
+  }
+  if (shareArticleNote) {
+    shareArticleNote.addEventListener("input", () => {
+      const article = articles.find((a) => a.id === shareArticleId);
+      if (article) renderShareMessagePreview("article", article.title, shareArticleNote.value);
+    });
+  }
 
   shareReadyCopyBtn.addEventListener("click", async () => {
     if (!shareReadyInstructions) return;
@@ -2710,6 +2750,8 @@
   });
   if (shareReadyModal) shareReadyModal.addEventListener("click", (e) => { if (e.target === shareReadyModal) closeShareReadyModal(); });
 
+  if (researchPackName) researchPackName.addEventListener("input", renderResearchPackMessagePreview);
+  if (researchPackDescription) researchPackDescription.addEventListener("input", renderResearchPackMessagePreview);
   researchPackCreateBtn.addEventListener("click", handleCreateResearchPack);
   researchPackCancelBtn.addEventListener("click", closeResearchPackModal);
   researchPackModal.addEventListener("click", (e) => { if (e.target === researchPackModal) closeResearchPackModal(); });
@@ -2786,7 +2828,7 @@
     close.className = "toast-close";
     close.dataset.toastClose = "";
     close.setAttribute("aria-label", t("close"));
-    close.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" width="13" height="13" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>';
+    close.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" width="14" height="14" aria-hidden="true"><path d="M18 6 6 18" /><path d="m6 6 12 12" /></svg>';
     toast.appendChild(close);
     container.appendChild(toast);
     if (actionLabel && actionCallback) {

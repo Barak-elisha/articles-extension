@@ -1,7 +1,16 @@
 (function () {
-  const INSTALL_URL = "https://chromewebstore.google.com/detail/article-saver/";
+  const EXTENSION_ID = "coagndppgjemdfaakejdclhhgmjppdlf";
+  const INSTALL_URL_BASE =
+    "https://chromewebstore.google.com/detail/article-saver/" +
+    EXTENSION_ID +
+    "?utm_source=article_saver&utm_medium=shared_email&utm_campaign=";
+  const INSTALL_CAMPAIGNS = {
+    article: "shared_article",
+    collection: "shared_collection",
+    "research-pack": "research_pack",
+  };
 
-  function getShareInstructions(packageType, collectionName) {
+  function getShareInstructions(packageType, collectionName, description) {
     const t = (key, params) => window.I18N.t(key, params);
     let templateKey;
     if (packageType === "article") {
@@ -12,15 +21,23 @@
       templateKey = "shareInstructionsCollectionTemplate";
     }
 
-    return t(templateKey, {
+    let message = t(templateKey, {
       itemName: t(
         packageType === "article" ? "shareArticleItem"
           : packageType === "research-pack" ? "shareResearchPackItem"
           : "shareCollectionItem"
       ),
       collectionName: collectionName || t("sharedResearch"),
-      installUrl: INSTALL_URL,
+      installUrl: INSTALL_URL_BASE + (INSTALL_CAMPAIGNS[packageType] || "shared_collection"),
     });
+
+    const desc = String(description || "").trim();
+    if (desc) {
+      message = message.replace("{description}", t("shareDescriptionNote") + "\n\n" + desc);
+    } else {
+      message = message.replace("{description}", "");
+    }
+    return message.replace(/\n{3,}/g, "\n\n").trim();
   }
 
   function formatInstructions(template, params) {
@@ -123,7 +140,7 @@
   async function sharePackage(packageBlob, fileName, packageType, collectionName, options = {}) {
     const t = (key) => window.I18N.t(key);
     const title = packageType === "article" ? t("shareArticleTitle") : t("shareCollectionTitle");
-    const instructions = getShareInstructions(packageType, collectionName);
+    const instructions = getShareInstructions(packageType, collectionName, options.description);
 
     const shareText = title + "\n\n" + instructions;
 
@@ -154,7 +171,7 @@
   }
 
   function getInstallUrl() {
-    return INSTALL_URL;
+    return INSTALL_URL_BASE + INSTALL_CAMPAIGNS.collection;
   }
 
   window.ShareService = {
