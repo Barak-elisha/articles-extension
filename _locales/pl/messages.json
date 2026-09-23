@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Article Saver",
+    "description": "Extension name"
+  },
+  "appDescription": {
+    "message": "Zapisuj artykuły na listach, dodawaj notatki i wyróżnienia, korzystaj z podsumowań AI i czatu oraz udostępniaj bibliotekę.",
+    "description": "Chrome Web Store short description"
+  }
+}

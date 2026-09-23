@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Article Saver",
+    "description": "Extension name"
+  },
+  "appDescription": {
+    "message": "Enregistrez des articles, ajoutez notes et surlignages, utilisez les résumés et le chat IA, puis exportez ou partagez.",
+    "description": "Chrome Web Store short description"
+  }
+}

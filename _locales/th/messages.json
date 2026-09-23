@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Article Saver",
+    "description": "Extension name"
+  },
+  "appDescription": {
+    "message": "บันทึกบทความเป็นรายการ เพิ่มโน้ตและไฮไลต์ ใช้สรุปและแชต AI แล้วส่งออกหรือแชร์คลังบทความของคุณ",
+    "description": "Chrome Web Store short description"
+  }
+}

@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Article Saver",
+    "description": "Extension name"
+  },
+  "appDescription": {
+    "message": "Lưu bài viết vào danh sách, thêm ghi chú và đánh dấu, dùng tóm tắt và trò chuyện AI, rồi xuất hoặc chia sẻ thư viện.",
+    "description": "Chrome Web Store short description"
+  }
+}

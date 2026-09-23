@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Article Saver",
+    "description": "Extension name"
+  },
+  "appDescription": {
+    "message": "Simpan artikel ke daftar, tambahkan catatan dan sorotan, gunakan ringkasan serta chat AI, lalu bagikan pustaka Anda.",
+    "description": "Chrome Web Store short description"
+  }
+}

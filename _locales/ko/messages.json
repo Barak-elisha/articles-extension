@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Article Saver",
+    "description": "Extension name"
+  },
+  "appDescription": {
+    "message": "기사를 목록에 저장하고 메모와 하이라이트를 추가하세요. AI 요약과 채팅을 사용하고 읽기 자료를 내보내거나 공유할 수 있습니다.",
+    "description": "Chrome Web Store short description"
+  }
+}

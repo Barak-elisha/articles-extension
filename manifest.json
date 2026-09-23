@@ -1,8 +1,9 @@
 {
   "manifest_version": 3,
-  "name": "Article Saver",
+  "name": "__MSG_appName__",
   "version": "1.2.0",
-  "description": "Save articles to lists, add notes and highlights, use AI summaries and chat, and export or share your reading library.",
+  "description": "__MSG_appDescription__",
+  "default_locale": "en",
   "permissions": [
     "sidePanel",
     "activeTab",
@@ -19,7 +20,7 @@
     "type": "module"
   },
   "action": {
-    "default_title": "Article Saver",
+    "default_title": "__MSG_appName__",
     "default_icon": {
       "16": "icons/icon16.png",
       "32": "icons/icon32.png",

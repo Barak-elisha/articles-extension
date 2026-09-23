@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Article Saver",
+    "description": "Extension name"
+  },
+  "appDescription": {
+    "message": "लेखों को सूचियों में सहेजें, नोट्स और हाइलाइट जोड़ें, AI सारांश व चैट का उपयोग करें और अपनी लाइब्रेरी साझा करें।",
+    "description": "Chrome Web Store short description"
+  }
+}

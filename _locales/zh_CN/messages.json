@@ -1,0 +1,10 @@
+{
+  "appName": {
+    "message": "Article Saver",
+    "description": "Extension name"
+  },
+  "appDescription": {
+    "message": "将文章保存到列表，添加笔记和高亮，使用 AI 摘要和聊天，并导出或分享您的阅读资料库。",
+    "description": "Chrome Web Store short description"
+  }
+}

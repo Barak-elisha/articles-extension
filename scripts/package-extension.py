@@ -20,6 +20,7 @@ files = {
     *manifest['icons'].values(), *manifest['action']['default_icon'].values(),
 }
 files.update(str(path.relative_to(ROOT)) for path in (ROOT / 'icons/ui').glob('*.svg'))
+files.update(str(path.relative_to(ROOT)) for path in (ROOT / '_locales').glob('*/messages.json'))
 html = (ROOT / 'sidepanel.html').read_text()
 for ref in re.findall(r'(?:src|href)="([^"]+)"', html):
     if re.match(r'^(?:https?:|#)', ref):
