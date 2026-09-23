@@ -368,20 +368,72 @@ function extractFromPage() {
   }
 
   function pickMain() {
-    const article = document.querySelector("article");
-    const main = document.querySelector("main");
-    const content = document.getElementById("content");
-    const candidates = [article, main, content, document.body, document.documentElement];
-    for (const el of candidates) {
-      if (el && el.textContent.trim().length > 50) return el;
+    const selectors = [
+      '[itemprop="articleBody"]',
+      '#ArticleBodyComponent',
+      '.ArticleBodyComponent',
+      '.article-body',
+      '.articleBody',
+      '.article__body',
+      '.story-body',
+      '.story-content',
+      '.entry-content',
+      '.post-content',
+      '.article-content',
+      '.elementor-widget-theme-post-content',
+      'main',
+      '[role="main"]',
+      '#content',
+      'article',
+    ];
+    const candidates = [];
+    const seen = new Set();
+    selectors.forEach((selector) => {
+      document.querySelectorAll(selector).forEach((el) => {
+        if (!seen.has(el)) {
+          seen.add(el);
+          candidates.push(el);
+        }
+      });
+    });
+
+    function score(el) {
+      const text = (el.innerText || el.textContent || '').trim();
+      if (text.length < 120) return -Infinity;
+      const identity = [el.id, typeof el.className === 'string' ? el.className : '', el.getAttribute && el.getAttribute('itemprop')]
+        .filter(Boolean).join(' ').toLowerCase();
+      const paragraphs = el.querySelectorAll ? el.querySelectorAll('p').length : 0;
+      const headings = el.querySelectorAll ? el.querySelectorAll('h2,h3').length : 0;
+      let value = Math.min(text.length, 20000) + (paragraphs * 140) + (headings * 90);
+      if (/articlebody|article-body|article__body|story-body|story-content|entry-content|post-content|article-content|theme-post-content/.test(identity)) value += 12000;
+      if (/comment|talkback|reply|respond|discussion|related|recommend|promo|taboola/.test(identity)) value -= 20000;
+      return value;
     }
+
+    let best = null;
+    let bestScore = -Infinity;
+    candidates.forEach((candidate) => {
+      const candidateScore = score(candidate);
+      if (candidateScore > bestScore) {
+        best = candidate;
+        bestScore = candidateScore;
+      }
+    });
+    if (best) return best;
     return document.body || document.documentElement;
   }
 
   function extractText(root) {
     const clone = root.cloneNode(true);
     clone
-      .querySelectorAll("script,style,noscript,iframe,nav,header,footer,form,aside")
+      .querySelectorAll([
+        'script', 'style', 'noscript', 'iframe', 'nav', 'header', 'footer', 'form', 'aside',
+        '#comments', '#respond', '#SiteArticleComments', '#ArticleCommentsPopup',
+        '.comments', '.comment-list', '.comment-respond', '.respond', '.talkbacks', '.talkback',
+        '[class*="ArticleComment"]', '[class*="comments_template"]',
+        '[data-testid*="comment"]', '[aria-label*="comments" i]',
+        '.trc_rbox', '[class*="taboola" i]', '[class*="recommended" i]', '[class*="related-post" i]'
+      ].join(','))
       .forEach((n) => n.remove());
     const text = clone.innerText || clone.textContent || "";
     return text.replace(/\n{3,}/g, "\n\n").trim();

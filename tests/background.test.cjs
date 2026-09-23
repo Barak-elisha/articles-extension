@@ -19,9 +19,38 @@ function setup({ fetch, tabs, result, timer } = {}) {
     }
   });
   vm.runInContext(source, context);
-  return { call: message => new Promise(resolve => listener(message, {}, resolve)), target: () => target, cleared: () => cleared, install: reason => { installationListener({ reason }); return new Promise(r => setTimeout(r, 0)); }, storage: { local: storage } };
+  return {
+    call: message => new Promise(resolve => listener(message, {}, resolve)),
+    target: () => target,
+    cleared: () => cleared,
+    install: reason => { installationListener({ reason }); return new Promise(r => setTimeout(r, 0)); },
+    storage: { local: storage },
+    extract(document, href = 'https://example.com/article') {
+      context.document = document;
+      context.window = { location: { href } };
+      return vm.runInContext('extractFromPage()', context);
+    }
+  };
 }
 const success = parts => ({ ok: true, json: async () => ({ candidates: [{ content: { parts } }] }) });
+function articleNode({ id = '', className = '', text, paragraphs = 0, headings = 0, itemprop = null }) {
+  return {
+    id, className, innerText: text, textContent: text,
+    getAttribute: name => name === 'itemprop' ? itemprop : null,
+    querySelectorAll: selector => selector === 'p' ? Array(paragraphs).fill({}) : selector === 'h2,h3' ? Array(headings).fill({}) : [],
+    cloneNode() { return articleNode({ id, className, text, paragraphs, headings, itemprop }); }
+  };
+}
+function articleDocument(selectorMap, title = 'Article') {
+  const body = articleNode({ text: 'Fallback page content '.repeat(100) });
+  return {
+    title,
+    body,
+    documentElement: body,
+    querySelector: selector => selector === 'h1' ? { textContent: title } : null,
+    querySelectorAll: selector => selectorMap[selector] || [],
+  };
+}
 test('Extraction targets active HTTP page and returns data', async () => {
   const app = setup(); const response = await app.call({ type: 'EXTRACT_ARTICLE' });
   assert.equal(response.ok, true); assert.equal(app.target().tabId, 1); assert.equal(response.data.title, 'Article');
@@ -36,6 +65,23 @@ test('Full window chooses most recently accessed web tab only', async () => {
 test('Restricted pages do not execute extraction', async () => {
   const app = setup({ tabs: () => [{ id: 1, url: 'chrome://settings' }] });
   assert.equal((await app.call({ type: 'EXTRACT_ARTICLE' })).ok, false); assert.equal(app.target(), undefined);
+});
+test('Ynet extraction prefers the article body over ArticleComment elements', () => {
+  const comment = articleNode({ className: 'ArticleComment2026 level1', text: 'בבביבי בום נתניהו, כואב לי בנשמה פרסם תגובה', paragraphs: 1 });
+  const body = articleNode({ id: 'ArticleBodyComponent', className: 'ArticleBodyComponent article-body', text: 'לאורך השנים, ראש הממשלה השתתף פעמים רבות בכינוס העצרת הכללית של האו״ם. '.repeat(20), paragraphs: 12 });
+  const doc = articleDocument({ '#ArticleBodyComponent': [body], '.ArticleBodyComponent': [body], '.article-body': [body], article: [comment] });
+  const result = setup().extract(doc, 'https://www.ynet.co.il/news/article/syvvx11zqmg#autoplay');
+  assert.match(result.content, /לאורך השנים/);
+  assert.doesNotMatch(result.content, /בבביבי בום|פרסם תגובה/);
+});
+test('WordPress extraction prefers Elementor post content over reader comments', () => {
+  const comment = articleNode({ id: 'div-comment-20318', className: 'comment-body', text: 'אתה מדבר על בזבוז של 200 דולר של אדם פרטי', paragraphs: 1 });
+  const body = articleNode({ className: 'elementor-widget elementor-widget-theme-post-content', text: 'בטח יצא לכם לשמוע על Instinct. אייג׳נט שמדברים איתו בווטסאפ והוא גם מבצע פעולות. '.repeat(24), paragraphs: 18, headings: 4 });
+  const page = articleNode({ id: 'content', className: 'row', text: `${body.innerText}\n${comment.innerText}\nפוסטים מומלצים `.repeat(3), paragraphs: 28, headings: 10 });
+  const doc = articleDocument({ '.elementor-widget-theme-post-content': [body], '#content': [page], article: [comment] });
+  const result = setup().extract(doc, 'https://internet-israel.com/article');
+  assert.match(result.content, /בטח יצא לכם לשמוע על Instinct/);
+  assert.doesNotMatch(result.content, /בזבוז של 200 דולר של אדם פרטי/);
 });
 test('AI sends key in header only, limits article, defaults to supported model, skips thought parts', async () => {
   let request;
