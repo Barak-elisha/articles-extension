@@ -3343,48 +3343,21 @@ button:disabled { opacity: .5; cursor: not-allowed; }
   margin: 10px 0 0;
   padding: 9px 11px;
   border-radius: 11px;
-  border: 1px solid #d6e2f8;
-  border-inline-start: 3px solid #4e83f4;
-  background: linear-gradient(135deg, #f7faff, #eef4ff);
+  border: 1px dashed #c9d5ee;
+  background: #fbfcff;
   color: #4a5871;
 }
 
-.share-message-content .share-install-label {
-  display: block;
-  font-weight: 600;
-}
-
 .share-message-content .share-url {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  margin-top: 8px;
-  padding: 6px 11px;
-  border-radius: 999px;
-  background: #2f6fdd;
-  color: #ffffff;
-  font-size: 11px;
+  display: block;
+  margin-top: 5px;
+  color: #3f63b3;
+  font-size: 10.5px;
   font-weight: 600;
-  line-height: 1.35;
   word-break: break-all;
   direction: ltr;
   unicode-bidi: embed;
   text-align: start;
-  text-decoration: none;
-  box-shadow: 0 1px 3px rgba(47, 111, 221, 0.28);
-  transition: background-color 0.15s ease, transform 0.15s ease;
-}
-
-.share-message-content .share-url:hover {
-  background: #2459b8;
-}
-
-.share-message-content .share-url:active {
-  transform: translateY(1px);
-}
-
-.share-message-content .share-url-icon {
-  flex: 0 0 auto;
 }
 
 .share-message-content .share-signoff {
