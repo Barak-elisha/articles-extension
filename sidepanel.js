@@ -2220,9 +2220,11 @@
         const match = para.match(/https?:\/\/[^\s]+/);
         if (match) {
           const url = match[0];
-          body = escapeHtml(para.slice(0, match.index))
-            + `<span class="share-url">${escapeHtml(url)}</span>`
-            + escapeHtml(para.slice(match.index + url.length));
+          body = `<span class="share-install-label">${escapeHtml(para.slice(0, match.index))}</span>` +
+            `<a class="share-url" dir="ltr" data-url="${escapeHtml(url)}" href="#" aria-label="${escapeHtml(url)}">` +
+            `<svg class="share-url-icon" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 17 17 7M7 7h10v10"/></svg>` +
+            `${escapeHtml(url)}</a>` +
+            escapeHtml(para.slice(match.index + url.length));
         }
       }
 
@@ -2241,6 +2243,20 @@
       + `<span class="share-item-badge-icon" data-icon="${badgeIcon}" aria-hidden="true"></span>`
       + `<span class="share-item-badge-name" dir="auto">${badgeName}</span>`
       + `</div>` + targetContentEl.innerHTML;
+
+    // Install-link pill: open the store listing on click
+    targetContentEl.querySelectorAll(".share-install .share-url").forEach((el) => {
+      el.addEventListener("click", (e) => {
+        e.preventDefault();
+        const url = el.getAttribute("data-url");
+        if (!url) return;
+        if (window.chrome && window.chrome.tabs && window.chrome.tabs.create) {
+          window.chrome.tabs.create({ url });
+        } else if (window.open) {
+          window.open(url, "_blank", "noopener,noreferrer");
+        }
+      });
+    });
 
     // Add copy handler
     const newBtn = targetCopyBtn.cloneNode(true);
