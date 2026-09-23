@@ -2,25 +2,34 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   if (msg && msg.type === "EXTRACT_ARTICLE") {
     extractActiveTab(msg.lang)
       .then((data) => sendResponse({ ok: true, data }))
-      .catch((err) => sendResponse({ ok: false, error: err.message }));
+      .catch((err) => sendResponse({ ok: false, error: err.message, code: err.code || "" }));
     return true; // async response
   }
   if (msg && msg.type === "GENERATE_SUMMARY") {
     generateSummary(msg.apiKey, msg.content, msg.title, msg.model, msg.lang)
       .then((data) => sendResponse({ ok: true, summary: data }))
-      .catch((err) => sendResponse({ ok: false, error: err.message }));
+      .catch((err) => sendResponse({ ok: false, error: err.message, code: err.code || "" }));
     return true; // async response
   }
   if (msg && msg.type === "CHAT_ARTICLE") {
     chatArticle(msg.apiKey, msg.model, msg.title, msg.content, msg.messages, msg.lang)
       .then((data) => sendResponse({ ok: true, text: data }))
-      .catch((err) => sendResponse({ ok: false, error: err.message }));
+      .catch((err) => sendResponse({ ok: false, error: err.message, code: err.code || "" }));
     return true; // async response
   }
 });
 
 chrome.sidePanel.setPanelBehavior({ openPanelOnActionClick: true })
   .catch((err) => console.error("sidePanel setPanelBehavior:", err));
+
+// After an extension update, leave a note for "What's New" in the panel.
+if (chrome.runtime.onInstalled && chrome.storage && chrome.storage.local) {
+  chrome.runtime.onInstalled.addListener((details) => {
+    if (details && details.reason === "update") {
+      chrome.storage.local.set({ pendingWhatsNewVersion: "1.2.0" }).catch(() => {});
+    }
+  });
+}
 
 const PROMPTS = {
   he: {
@@ -323,12 +332,25 @@ async function extractActiveTab(lang) {
   }
 
   if (!tab || tab.id == null) throw new Error(lstr(lang, "לא נמצא Tab פעיל", "No active tab found", "未找到活动标签页", "कोई सक्रिय टैब नहीं मिला", "No se encontró ninguna pestaña activa", "لم يتم العثور على تبويب نشط", "Aucun onglet actif trouvé", "Nenhuma aba ativa encontrada", "Kein aktiver Tab gefunden", "Nessuna scheda attiva trovata", "Активная вкладка не найдена", "Geen actief tabblad gevonden", "Nebyl nalezen aktivní panel", "Nie znaleziono aktywnej karty", "アクティブなタブが見つかりません", "활성 탭을 찾을 수 없습니다", "Etkin sekme bulunamadı", "Tidak ada tab aktif", "Không tìm thấy tab đang mở", "ไม่พบแท็บที่เปิดอยู่"));
-  if (!/^https?:/.test(tab.url || "")) throw new Error(lstr(lang, "הדף אינו נגיש (אין כתובת HTTP/HTTPS)", "Page is not accessible (no HTTP/HTTPS URL)", "页面无法访问（没有 HTTP/HTTPS 网址）", "पृष्ठ सुलभ नहीं है (कोई HTTP/HTTPS URL नहीं)", "La página no es accesible (sin URL HTTP/HTTPS)", "الصفحة غير قابلة للوصول (لا يوجد رابط HTTP/HTTPS)", "Page inaccessible (pas d'URL HTTP/HTTPS)", "A página não está acessível (sem URL HTTP/HTTPS)", "Die Seite ist nicht zugänglich (keine HTTP/HTTPS-URL)", "La pagina non è accessibile (nessun URL HTTP/HTTPS)", "Страница недоступна (нет URL HTTP/HTTPS)", "De pagina is niet toegankelijk (geen HTTP/HTTPS-URL)", "Stránka není přístupná (žádná adresa HTTP/HTTPS)", "Strona jest niedostępna (brak adresu HTTP/HTTPS)", "ページにアクセスできません（HTTP/HTTPSのURLがありません）", "페이지에 접근할 수 없습니다(HTTP/HTTPS URL이 없음)", "Sayfaya erişilemiyor (HTTP/HTTPS URL'si yok)", "Halaman tidak dapat diakses (tidak ada URL HTTP/HTTPS)", "Trang không truy cập được (không có URL HTTP/HTTPS)", "ไม่สามารถเข้าถึงหน้าได้ (ไม่มี URL HTTP/HTTPS)"));
+  if (!/^https?:/.test(tab.url || "")) {
+    const err = new Error(lstr(lang, "הדף אינו נגיש (אין כתובת HTTP/HTTPS)", "Page is not accessible (no HTTP/HTTPS URL)", "页面无法访问（没有 HTTP/HTTPS 网址）", "पृष्ठ सुलभ नहीं है (कोई HTTP/HTTPS URL नहीं)", "La página no es accesible (sin URL HTTP/HTTPS)", "الصفحة غير قابلة للوصول (لا يوجد رابط HTTP/HTTPS)", "Page inaccessible (pas d'URL HTTP/HTTPS)", "A página não está acessível (sem URL HTTP/HTTPS)", "Die Seite ist nicht zugänglich (keine HTTP/HTTPS-URL)", "La pagina non è accessibile (nessun URL HTTP/HTTPS)", "Страница недоступна (нет URL HTTP/HTTPS)", "De pagina is niet toegankelijk (geen HTTP/HTTPS-URL)", "Stránka není přístupná (žádná adresa HTTP/HTTPS)", "Strona jest niedostępna (brak adresu HTTP/HTTPS)", "ページにアクセスできません（HTTP/HTTPSのURLがありません）", "페이지에 접근할 수 없습니다(HTTP/HTTPS URL이 없음)", "Sayfaya erişilemiyor (HTTP/HTTPS URL'si yok)", "Halaman tidak dapat diakses (tidak ada URL HTTP/HTTPS)", "Trang không truy cập được (không có URL HTTP/HTTPS)", "ไม่สามารถเข้าถึงหน้าได้ (ไม่มี URL HTTP/HTTPS)"));
+    err.code = "UNSUPPORTED_PAGE";
+    throw err;
+  }
 
-  const result = await chrome.scripting.executeScript({
-    target: { tabId: tab.id },
-    func: extractFromPage,
-  });
+  let result;
+  try {
+    result = await chrome.scripting.executeScript({
+      target: { tabId: tab.id },
+      func: extractFromPage,
+    });
+  } catch (scriptErr) {
+    const raw = (scriptErr && scriptErr.message) || "";
+    console.warn("[Article Saver] page extraction blocked:", raw);
+    const err = new Error(lstr(lang, "העמוד הזה אינו מאפשר לתוסף לגשת לתוכן", "This page doesn't allow extensions to access its content", "此页面不允许扩展程序访问其内容", "यह पृष्ठ एक्सटेंशन को अपनी सामग्री तक पहुँचने की अनुमति नहीं देता", "Esta página no permite que la extensión acceda a su contenido", "لا تسمح هذه الصفحة للإضافة بالوصول إلى محتواها", "Cette page n'autorise pas l'extension à accéder à son contenu", "Esta página não permite que a extensão acesse o conteúdo dela", "Diese Seite erlaubt der Erweiterung nicht, auf ihren Inhalt zuzugreifen", "Questa pagina non consente all'estensione di accedere ai suoi contenuti", "Эта страница не позволяет расширению получить доступ к её содержимому", "Deze pagina staat de extensie niet toe om toegang te krijgen tot de inhoud", "Tato stránka nerozšiřuje rozšíření přístup k jejímu obsahu", "Ta strona nie pozwala rozszerzeniu na dostęp do jej treści", "このページは拡張機能によるコンテンツへのアクセスを許可していません", "이 페이지는 확장 프로그램이 콘텐츠에 액세스하는 것을 허용하지 않습니다", "Bu sayfa, uzantının içeriğine erişmesine izin vermiyor", "Halaman ini tidak mengizinkan ekstensi mengakses kontennya", "Trang này không cho phép tiện ích truy cập nội dung của nó", "หน้านี้ไม่อนุญาตให้ส่วนขยายเข้าถึงเนื้อหา"));
+    err.code = "UNSUPPORTED_PAGE";
+    throw err;
+  }
 
   const value = result && result[0] && result[0].result;
   if (!value) throw new Error(lstr(lang, "לא ניתן היה לחלץ את המאמר", "Could not extract the article", "无法提取文章", "लेख निकाला नहीं जा सका", "No se pudo extraer el artículo", "تعذّر استخراج المقال", "Impossible d'extraire l'article", "Não foi possível extrair o artigo", "Der Artikel konnte nicht extrahiert werden", "Impossibile estrarre l'articolo", "Не удалось извлечь статью", "Het artikel kon niet worden geëxtraheerd", "Článek se nepodařilo extrahovat", "Nie udało się wyodrębnić artykułu", "記事を抽出できませんでした", "기사를 추출할 수 없습니다", "Makale çıkarılamadı", "Tidak dapat mengekstrak artikel", "Không trích xuất được bài viết", "ไม่สามารถดึงบทความได้"));

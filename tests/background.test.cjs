@@ -5,18 +5,21 @@ const fs = require('node:fs');
 const source = fs.readFileSync(require('node:path').join(__dirname, '../background.js'), 'utf8');
 function setup({ fetch, tabs, result, timer } = {}) {
   let listener, target, cleared = false;
+  let installationListener = null;
+  const storage = { data: {}, async get(k) { return this.data[k] ? { [k]: this.data[k] } : {}; }, async set(o) { Object.assign(this.data, o); }, async remove(k) { delete this.data[k]; } };
   const context = vm.createContext({ console, AbortController,
     setTimeout: timer || setTimeout, clearTimeout: timer ? () => { cleared = true; } : clearTimeout,
     fetch: fetch || (() => { throw Error('Unexpected network request'); }),
     chrome: {
-      runtime: { getURL: () => 'chrome-extension://test/', onMessage: { addListener: fn => listener = fn } },
+      runtime: { getURL: () => 'chrome-extension://test/', onMessage: { addListener: fn => listener = fn }, onInstalled: { addListener: fn => { installationListener = fn; } } },
+      storage: { local: storage },
       sidePanel: { setPanelBehavior: async () => {} },
       tabs: { query: async query => tabs ? tabs(query) : [{ id: 1, url: 'https://example.com/article' }] },
       scripting: { executeScript: async options => { target = options.target; return result || [{ result: { title: 'Article', content: 'Text', url: 'https://example.com/article' } }]; } }
     }
   });
   vm.runInContext(source, context);
-  return { call: message => new Promise(resolve => listener(message, {}, resolve)), target: () => target, cleared: () => cleared };
+  return { call: message => new Promise(resolve => listener(message, {}, resolve)), target: () => target, cleared: () => cleared, install: reason => { installationListener({ reason }); return new Promise(r => setTimeout(r, 0)); }, storage: { local: storage } };
 }
 const success = parts => ({ ok: true, json: async () => ({ candidates: [{ content: { parts } }] }) });
 test('Extraction targets active HTTP page and returns data', async () => {
@@ -69,4 +72,16 @@ test('Timeout aborts stalled AI request and releases timer', async () => {
   }) });
   const response = await app.call({ type: 'GENERATE_SUMMARY', apiKey: 'TEST', content: 'Text' });
   assert.equal(response.ok, false); assert.match(response.error, /timed out/); assert.equal(app.cleared(), true);
+});
+test('Extension update flags a pending What\'s New note locally', async () => {
+  const app = setup();
+  await app.install('update');
+  const stored = await app.storage.local.get('pendingWhatsNewVersion');
+  assert.equal(stored.pendingWhatsNewVersion, '1.2.0');
+});
+test('A fresh install does not flag the What\'s New note', async () => {
+  const app = setup();
+  await app.install('install');
+  const stored = await app.storage.local.get('pendingWhatsNewVersion');
+  assert.equal(stored.pendingWhatsNewVersion, undefined);
 });

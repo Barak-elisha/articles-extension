@@ -9,6 +9,7 @@
   let aiApiKey = "";
   let aiModel = "gemini-2.5-flash";
   let searchQuery = "";
+  let saveFlashTimer = null;
 
   const t = (k, params) => window.I18N.t(k, params);
 
@@ -165,6 +166,10 @@
 
   const $ = (sel) => document.querySelector(sel);
   const listSelect = $("#listSelect");
+  const listSelectBtn = $("#listSelectBtn");
+  const listSelectLabel = $("#listSelectLabel");
+  const listDropdown = $("#listDropdown");
+  const listDropdownMenu = $("#listDropdownMenu");
   const newListBtn = $("#newListBtn");
   const newListInline = $("#newListInline");
   const newListName = $("#newListName");
@@ -173,6 +178,7 @@
   const saveBtn = $("#saveBtn");
   const saveStatus = $("#saveStatus");
   const listsContainer = $("#listsContainer");
+  const listsSection = $("#listsSection");
   const searchInput = $("#searchInput");
   const exportBtn = $("#exportBtn");
   const importBtn = $("#importBtn");
@@ -207,6 +213,19 @@
   let chatMenuIdx = null;
   let chatConfirmIdx = null;
   let chatDeleteFn = null;
+
+  const renameModal = $("#renameModal");
+  const renameInput = $("#renameInput");
+  const renameSaveBtn = $("#renameSaveBtn");
+  const renameCancelBtn = $("#renameCancelBtn");
+  let renameListId = null;
+
+  const confirmModal = $("#confirmModal");
+  const confirmModalTitle = $("#confirmModalTitle");
+  const confirmModalBody = $("#confirmModalBody");
+  const confirmOkBtn = $("#confirmOkBtn");
+  const confirmCancelBtn = $("#confirmCancelBtn");
+  let confirmResolve = null;
 
   let shareCollectionId = null;
   let shareArticleId = null;
@@ -278,6 +297,27 @@
   const selectionCount = $("#selectionCount");
   const articleSelectConfirmBtn = $("#articleSelectConfirmBtn");
   const articleSelectCancelBtn = $("#articleSelectCancelBtn");
+  const articleSelectSearch = $("#articleSelectSearch");
+  const pickerFilterChips = $("#pickerFilterChips");
+  const articleSelectSource = $("#articleSelectSource");
+  const articleSelectAvailable = $("#articleSelectAvailable");
+  const pickerEmptyState = $("#pickerEmptyState");
+  const pickerEmptyHint = $("#pickerEmptyHint");
+  let pickerArticlePool = [];
+  let pickerSearchQuery = "";
+  let pickerActiveFilter = "all";
+
+  const whatsNewModal = $("#whatsNewModal");
+  const whatsNewCard = $("#whatsNewCard");
+  const whatsNewCloseBtn = $("#whatsNewCloseBtn");
+  const whatsNewCta = $("#whatsNewCta");
+  const whatsNewGotIt = $("#whatsNewGotIt");
+  const whatsNewBtn = $("#whatsNewBtn");
+  const whatsNewBellDot = whatsNewBtn ? whatsNewBtn.querySelector(".whatsnew-bell-dot") : null;
+
+  const WHATS_NEW_VERSION = "1.2.0";
+  let whatsNewOpen = false;
+  let whatsNewLastFocused = null;
 
   const closeChatMenu = () => {
     chatCtxMenu.classList.add("hidden");
@@ -350,6 +390,159 @@
     if (e.target === dupModal) closeDuplicateModal("cancel");
   });
 
+  renameSaveBtn.addEventListener("click", submitRename);
+  renameCancelBtn.addEventListener("click", () => {
+    renameListId = null;
+    renameModal.classList.add("hidden");
+  });
+  renameModal.addEventListener("click", (e) => {
+    if (e.target === renameModal) {
+      renameListId = null;
+      renameModal.classList.add("hidden");
+    }
+  });
+  renameInput.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") { e.preventDefault(); submitRename(); }
+    else if (e.key === "Escape") { renameListId = null; renameModal.classList.add("hidden"); }
+  });
+
+  confirmOkBtn.addEventListener("click", () => closeConfirm(true));
+  confirmCancelBtn.addEventListener("click", () => closeConfirm(false));
+  confirmModal.addEventListener("click", (e) => {
+    if (e.target === confirmModal) closeConfirm(false);
+  });
+
+  /* ===== What's New modal ===== */
+  async function maybeShowWhatsNew() {
+    if (whatsNewOpen || !whatsNewModal) return;
+    let pending = null;
+    try {
+      const stored = await chrome.storage.local.get("pendingWhatsNewVersion");
+      pending = stored && stored.pendingWhatsNewVersion;
+    } catch (e) {}
+    if (!pending || pending !== WHATS_NEW_VERSION) return;
+    openWhatsNew();
+  }
+
+  function openWhatsNew() {
+    whatsNewOpen = true;
+    whatsNewLastFocused = document.activeElement;
+    whatsNewModal.classList.remove("closing");
+    whatsNewModal.classList.remove("hidden");
+    applyI18n();
+    requestAnimationFrame(() => {
+      (whatsNewCta || whatsNewCloseBtn || whatsNewGotIt).focus();
+    });
+    document.addEventListener("keydown", whatsNewKeydown);
+    markWhatsNewSeen();
+  }
+
+  async function markWhatsNewSeen() {
+    try {
+      await chrome.storage.local.set({ lastSeenWhatsNewVersion: WHATS_NEW_VERSION });
+      await chrome.storage.local.remove("pendingWhatsNewVersion");
+    } catch (e) {}
+    setWhatsNewBellState(false);
+  }
+
+  function updateWhatsNewBellLabel(unread) {
+    if (!whatsNewBtn) return;
+    const label = t(unread ? "whatsNewButtonUnread" : "whatsNewButton");
+    whatsNewBtn.title = label;
+    whatsNewBtn.setAttribute("aria-label", label);
+  }
+
+  function setWhatsNewBellState(unread) {
+    if (!whatsNewBtn) return;
+    whatsNewBtn.classList.toggle("unread", !!unread);
+    if (whatsNewBellDot) whatsNewBellDot.setAttribute("aria-hidden", "true");
+    updateWhatsNewBellLabel(unread);
+  }
+
+  async function refreshWhatsNewBell() {
+    if (!whatsNewBtn) return;
+    let seen = null;
+    try {
+      const stored = await chrome.storage.local.get("lastSeenWhatsNewVersion");
+      seen = stored && stored.lastSeenWhatsNewVersion;
+    } catch (e) {}
+    setWhatsNewBellState(seen !== WHATS_NEW_VERSION);
+  }
+
+  function closeWhatsNew() {
+    if (!whatsNewOpen) return;
+    whatsNewOpen = false;
+    document.removeEventListener("keydown", whatsNewKeydown);
+    whatsNewModal.classList.add("closing");
+    setTimeout(() => {
+      whatsNewModal.classList.add("hidden");
+      whatsNewModal.classList.remove("closing");
+    }, 160);
+    if (whatsNewLastFocused && whatsNewLastFocused.focus) whatsNewLastFocused.focus();
+  }
+
+  async function acknowledgeWhatsNew() {
+    try {
+      await chrome.storage.local.set({ lastSeenWhatsNewVersion: WHATS_NEW_VERSION });
+      await chrome.storage.local.remove("pendingWhatsNewVersion");
+      await refreshWhatsNewBell();
+    } catch (e) {}
+    closeWhatsNew();
+  }
+
+  function whatsNewKeydown(e) {
+    if (e.key === "Escape") {
+      e.preventDefault();
+      acknowledgeWhatsNew();
+      return;
+    }
+    if (e.key !== "Tab") return;
+    const focusables = whatsNewModal.querySelectorAll(
+      'button, a[href], input, select, textarea, [tabindex]:not([tabindex="-1"])'
+    );
+    if (!focusables.length) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    if (e.shiftKey && (document.activeElement === first || document.activeElement === whatsNewModal)) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && document.activeElement === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
+
+  function spotlightShareActions() {
+    settingsView.classList.add("hidden");
+    detailView.classList.add("hidden");
+    mainView.classList.remove("hidden");
+    const targets = [];
+    if (exportPackageBtn) targets.push(exportPackageBtn, exportBtn);
+    if (listsContainer) targets.push(...listsContainer.querySelectorAll(".list-actions .icon-btn, .share-btn"));
+    if (!targets.length) return;
+    targets.forEach((el) => {
+      el.classList.remove("share-spotlight");
+      void el.offsetWidth;
+      el.classList.add("share-spotlight");
+    });
+    listsSection.scrollIntoView({ behavior: "smooth", block: "nearest" });
+  }
+
+  if (whatsNewCloseBtn) whatsNewCloseBtn.addEventListener("click", acknowledgeWhatsNew);
+  if (whatsNewBtn) whatsNewBtn.addEventListener("click", () => { if (whatsNewModal) openWhatsNew(); });
+  if (whatsNewGotIt) whatsNewGotIt.addEventListener("click", acknowledgeWhatsNew);
+  if (whatsNewCta) {
+    whatsNewCta.addEventListener("click", async () => {
+      await acknowledgeWhatsNew();
+      spotlightShareActions();
+    });
+  }
+  if (whatsNewModal) {
+    whatsNewModal.addEventListener("click", (e) => {
+      if (e.target === whatsNewModal) acknowledgeWhatsNew();
+    });
+  }
+
   async function loadAll() {
     lists = await getLists();
     articles = await getArticles();
@@ -367,10 +560,13 @@
       if (settingsView.classList.contains("hidden")) mainView.classList.remove("hidden");
     }
     render();
+    if (whatsNewModal) await maybeShowWhatsNew();
+    await refreshWhatsNewBell();
   }
 
   function applyI18n() {
     window.I18N.apply();
+    updateWhatsNewBellLabel(whatsNewBtn ? whatsNewBtn.classList.contains("unread") : false);
   }
 
   function applyLangSelect() {
@@ -453,6 +649,7 @@
 
   function render() {
     renderListSelect();
+    renderListDropdown();
     renderLists();
     document.querySelector("#libraryCount").textContent = articles.length;
   }
@@ -480,6 +677,86 @@
       if (l.id === activeListId) opt.selected = true;
       listSelect.appendChild(opt);
     });
+  }
+
+  function listOptionItems() {
+    if (!lists.length) {
+      return [{ value: "", name: t("noListsOption"), count: 0, disabled: true }];
+    }
+    const items = [{ value: "", name: t("allLists"), count: articles.length }];
+    lists.forEach((l) => {
+      items.push({ value: l.id, name: l.name, count: articles.filter((a) => a.listId === l.id).length });
+    });
+    return items;
+  }
+
+  function renderListDropdown() {
+    if (!listDropdownMenu) return;
+    const items = listOptionItems();
+    const noLists = !lists.length;
+    listSelectBtn.disabled = noLists;
+    const current =
+      activeListId
+        ? items.find((it) => it.value === activeListId)
+        : items.find((it) => it.value === "");
+    listSelectLabel.textContent = current ? current.name : (noLists ? t("noListsOption") : t("allLists"));
+    listDropdownMenu.innerHTML = "";
+    items.forEach((it, idx) => {
+      const opt = document.createElement("button");
+      opt.type = "button";
+      opt.className = "list-dropdown-option";
+      opt.id = "listDropdownOption" + idx;
+      opt.setAttribute("role", "option");
+      opt.dataset.value = it.value;
+      opt.setAttribute("aria-selected", String(it.value === current.value));
+      opt.disabled = !!it.disabled;
+      const check = document.createElement("span");
+      check.className = "list-dropdown-check";
+      check.dataset.icon = "check";
+      check.setAttribute("aria-hidden", "true");
+      const name = document.createElement("span");
+      name.className = "list-dropdown-name";
+      name.textContent = it.name;
+      name.dir = "auto";
+      const count = document.createElement("span");
+      count.className = "list-dropdown-count";
+      count.textContent = String(it.count);
+      opt.append(check, name, count);
+      opt.addEventListener("click", () => {
+        if (it.disabled) return;
+        selectListOption(it.value);
+      });
+      listDropdownMenu.appendChild(opt);
+    });
+    if (noLists) {
+      closeListDropdown();
+    }
+  }
+
+  function selectListOption(value) {
+    listSelect.value = value;
+    listSelect.dispatchEvent(new Event("change", { bubbles: true }));
+    closeListDropdown();
+  }
+
+  function openListDropdown() {
+    if (!lists.length) return;
+    listSelectBtn.setAttribute("aria-expanded", "true");
+    listDropdownMenu.classList.remove("hidden");
+    listDropdown.classList.add("open");
+    const selected = listDropdownMenu.querySelector('[aria-selected="true"]');
+    (selected || listDropdownMenu.firstElementChild)?.focus();
+  }
+
+  function closeListDropdown() {
+    listSelectBtn.setAttribute("aria-expanded", "false");
+    listDropdownMenu.classList.add("hidden");
+    listDropdown.classList.remove("open");
+  }
+
+  function toggleListDropdown() {
+    if (listDropdownMenu.classList.contains("hidden")) openListDropdown();
+    else closeListDropdown();
   }
 
   function listName(id) {
@@ -633,8 +910,30 @@
 
   /* ---------- Actions ---------- */
 
+  function setSaveButtonState(icon, label) {
+    saveBtn.dataset.icon = icon;
+    saveBtn.textContent = label;
+    saveBtn.title = label;
+    saveBtn.setAttribute("aria-label", label);
+  }
+
+  function runSaveSuccess() {
+    clearTimeout(saveFlashTimer);
+    setSaveButtonState("check", t("savedMoment"));
+    saveBtn.classList.add("save-success");
+    saveFlashTimer = setTimeout(() => {
+      if (saveBtn.dataset.icon !== "check") return;
+      saveBtn.dataset.icon = "bookmark-plus";
+      saveBtn.classList.remove("save-success");
+      saveBtn.textContent = t("saveCurrent");
+      saveBtn.title = t("saveCurrent");
+      saveBtn.setAttribute("aria-label", t("saveCurrent"));
+    }, 1500);
+  }
+
   async function saveCurrentArticle() {
     if (saveBtn.disabled) return;
+    clearTimeout(saveFlashTimer);
     saveStatus.className = "status";
     saveStatus.textContent = t("extracting");
     if (!activeListId) {
@@ -647,7 +946,11 @@
     saveBtn.disabled = true;
     try {
       const resp = await chrome.runtime.sendMessage({ type: "EXTRACT_ARTICLE", lang: window.I18N.lang });
-      if (!resp || !resp.ok) throw new Error((resp && resp.error) || t("extractError"));
+      if (!resp || !resp.ok) {
+        const err = new Error((resp && resp.error) || t("extractError"));
+        err.code = (resp && resp.code) || "";
+        throw err;
+      }
 
       const data = {
         title: resp.data.title,
@@ -719,13 +1022,24 @@
       if (saveStatus.className !== "status error") {
         saveStatus.className = "status success";
         saveStatus.textContent = t("savedSuccess");
+        runSaveSuccess();
       }
     } catch (err) {
       saveStatus.className = "status error";
-      saveStatus.textContent = t("errorPrefix") + err.message;
+      saveStatus.textContent = saveErrorMessage(err);
+      console.warn("[Article Saver] save failed:", err && err.message);
     } finally {
       saveBtn.disabled = false;
     }
+  }
+
+  function saveErrorMessage(err) {
+    const msg = (err && err.message) || "";
+    if (err && err.code === "UNSUPPORTED_PAGE") return t("cantSaveThisPage");
+    if (/(cannot be scripted|doesn't allow|not allowed|cannot access|cannot be accessed|gallery|chrome:\/\/|insecure|internal page)/i.test(msg)) {
+      return t("cantSaveThisPage");
+    }
+    return t("saveGenericError");
   }
 
   async function onAddList() {
@@ -737,25 +1051,60 @@
     await loadAll();
   }
 
-  async function renameList(id) {
+  function renameList(id) {
     const list = lists.find((l) => l.id === id);
-    const name = prompt(t("renamePrompt"), list ? list.name : "");
-    if (name && name.trim()) {
-      await updateList(id, name.trim());
-      await loadAll();
+    renameListId = id;
+    renameInput.value = list ? list.name : "";
+    applyI18n();
+    renameModal.classList.remove("hidden");
+    requestAnimationFrame(() => {
+      renameInput.focus();
+      renameInput.select();
+    });
+  }
+
+  async function submitRename() {
+    const name = renameInput.value.trim();
+    if (!name) { renameInput.focus(); return; }
+    const id = renameListId;
+    renameListId = null;
+    renameModal.classList.add("hidden");
+    await updateList(id, name);
+    await loadAll();
+  }
+
+  function openConfirm({ titleKey, body }) {
+    confirmModalTitle.setAttribute("data-i18n", titleKey);
+    confirmModalTitle.textContent = t(titleKey);
+    confirmModalBody.textContent = body;
+    confirmModal.classList.remove("hidden");
+    return new Promise((resolve) => { confirmResolve = resolve; });
+  }
+
+  function closeConfirm(result) {
+    confirmModal.classList.add("hidden");
+    if (confirmResolve) {
+      const r = confirmResolve;
+      confirmResolve = null;
+      r(result);
     }
   }
 
   async function removeList(id) {
     const list = lists.find((l) => l.id === id);
-    const ok = confirm(t("deleteListConfirm") + (list ? list.name : "") + t("deleteListConfirmSuffix"));
-    if (!ok) return;
-    await deleteList(id);
-    await loadAll();
+    const ok = await openConfirm({
+      titleKey: "deleteListTitle",
+      body: t("deleteListConfirm") + (list ? list.name : "") + t("deleteListConfirmSuffix"),
+    });
+    if (ok) {
+      await deleteList(id);
+      await loadAll();
+    }
   }
 
   async function removeArticle(id) {
-    if (!confirm(t("deleteArticleConfirm"))) return;
+    const ok = await openConfirm({ titleKey: "deleteArticleTitle", body: t("deleteArticleConfirm") });
+    if (!ok) return;
     await deleteArticle(id);
     articles = await getArticles();
     if (activeArticleId === id) { activeArticleId = null; detailView.classList.add("hidden"); mainView.classList.remove("hidden"); }
@@ -816,7 +1165,7 @@
     await setSetting("geminiModel", model);
     aiModel = model;
     aiSetupGuide.open = !aiApiKey;
-    alert(t("aiSaved"));
+    showToast(t("aiSaved"), "success");
   }
 
   /* ---------- Detail view ---------- */
@@ -1525,6 +1874,77 @@
     return articles.filter((a) => a.listId === listId);
   }
 
+  const SHARE_CHECK_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
+
+  const SHARE_OPTION_ICONS = {
+    scIncludeArticles: "library",
+    scIncludeNotes: "sticky-note",
+    scIncludeTags: "tag",
+    scIncludeAISummary: "sparkles",
+    scIncludeAIChat: "messages-square",
+    scIncludeHighlights: "highlighter",
+    saIncludeNotes: "sticky-note",
+    saIncludeHighlights: "highlighter",
+    saIncludeAISummary: "sparkles",
+    saIncludeAIChat: "messages-square",
+    rpIncludeNotes: "sticky-note",
+    rpIncludeTags: "tag",
+    rpIncludeAISummary: "sparkles",
+    rpIncludeAIChat: "messages-square",
+    rpIncludeHighlights: "highlighter",
+  };
+
+  function renderShareOptionChips(grid, options) {
+    grid.innerHTML = options.map(opt => `
+      <label class="share-option-chip" data-option="${opt.id}">
+        <input type="checkbox" id="${opt.id}" ${opt.checked ? "checked" : ""} ${opt.locked ? "disabled" : ""} />
+        <span class="option-icon" data-icon="${SHARE_OPTION_ICONS[opt.id] || "bookmark-plus"}" aria-hidden="true"></span>
+        <span class="option-text">
+          <span class="option-label">${t(opt.key)}</span>
+          <span class="option-count" data-option-count="${opt.id}"></span>
+        </span>
+        <span class="chip-check" aria-hidden="true">${SHARE_CHECK_SVG}</span>
+      </label>
+    `).join("");
+  }
+
+  function syncOptionCounts(grid, counts) {
+    grid.querySelectorAll("[data-option-count]").forEach((el) => {
+      const value = counts[el.dataset.optionCount];
+      el.textContent = value != null && value > 0 ? String(value) : "";
+    });
+  }
+
+  function buildCollectionMeta(articles) {
+    const lang = window.I18N?.lang || "";
+    const en = lang === "en";
+    const unit = (count, plural) => {
+      const s = t(plural);
+      if (count === 1 && en) return s.replace(/s$/, "");
+      return s;
+    };
+    const parts = [];
+    parts.push(`${articles.length} ${unit(articles.length, "shareUnitArticles")}`);
+    const notes = articles.filter((a) => a.notes).length;
+    if (notes) parts.push(`${notes} ${unit(notes, "shareUnitNotes")}`);
+    const tags = new Set(articles.flatMap((a) => a.tags || [])).size;
+    if (tags) parts.push(`${tags} ${unit(tags, "shareUnitTags")}`);
+    return parts.join(" · ");
+  }
+
+  function autoGrowNote(el) {
+    el.style.height = "auto";
+    el.style.height = Math.min(el.scrollHeight + 2, 150) + "px";
+  }
+
+  function articleNotesCount(a) {
+    return Array.isArray(a.notes) ? a.notes.length : (a.notes ? 1 : 0);
+  }
+
+  function unitCountLabel(count, singular, plural) {
+    return count === 1 ? singular : plural;
+  }
+
   function openShareCollectionModal(listId) {
     const list = lists.find((l) => l.id === listId);
     if (!list) return;
@@ -1533,30 +1953,28 @@
 
     // Set name and stats
     shareCollectionName.textContent = list.name;
-    shareCollectionStats.textContent = t("importPreviewStats", {
-      articleCount: listArticles.length,
-      notesCount: listArticles.filter(a => a.notes).length,
-      tagsCount: new Set(listArticles.flatMap(a => a.tags || [])).size,
-    });
+    shareCollectionStats.textContent = buildCollectionMeta(listArticles);
 
     shareCollectionNote.value = list.description || "";
     shareCollectionNote.classList.remove("share-note-filled");
 
     // Render options
     const options = [
+      { id: "scIncludeArticles", key: "shareOptionsArticles", checked: true, locked: true },
       { id: "scIncludeNotes", key: "shareOptionsNotes", checked: true },
+      { id: "scIncludeTags", key: "shareOptionsTags", checked: true },
       { id: "scIncludeAISummary", key: "shareOptionsAISummary", checked: true },
       { id: "scIncludeAIChat", key: "shareOptionsAIChat", checked: true },
-      { id: "scIncludeTags", key: "shareOptionsTags", checked: true },
       { id: "scIncludeHighlights", key: "shareOptionsHighlights", checked: true },
     ];
 
-    shareCollectionOptionsGrid.innerHTML = options.map(opt => `
-      <label class="share-option-chip" data-option="${opt.id}">
-        <input type="checkbox" id="${opt.id}" ${opt.checked ? "checked" : ""} />
-        <span class="option-label">${t(opt.key)}</span>
-      </label>
-    `).join("");
+    renderShareOptionChips(shareCollectionOptionsGrid, options);
+    syncOptionCounts(shareCollectionOptionsGrid, {
+      scIncludeArticles: listArticles.length,
+      scIncludeNotes: listArticles.filter(a => a.notes).length,
+      scIncludeTags: new Set(listArticles.flatMap(a => a.tags || [])).size,
+      scIncludeHighlights: listArticles.reduce((sum, a) => sum + (a.highlights?.length || 0), 0),
+    });
 
     // Render message preview
     renderShareMessagePreview("collection", list.name, shareCollectionNote.value);
@@ -1573,37 +1991,12 @@
   }
 
   function updateShareCollectionSummary(listArticles) {
-    const checkboxes = shareCollectionOptionsGrid.querySelectorAll("input[type=checkbox]");
-    const options = {
-      notes: checkboxes[0]?.checked ?? true,
-      aiSummary: checkboxes[1]?.checked ?? true,
-      aiChat: checkboxes[2]?.checked ?? true,
-      tags: checkboxes[3]?.checked ?? true,
-      highlights: checkboxes[4]?.checked ?? true,
-    };
-
-    let parts = [];
-    parts.push(`${listArticles.length} ${t("articlesCount")}`);
-    if (options.tags) {
-      const tagCount = new Set(listArticles.flatMap(a => a.tags || [])).size;
-      if (tagCount) parts.push(`${tagCount} ${t("tags")}`);
-    }
-    if (options.notes) {
-      const notesCount = listArticles.filter(a => a.notes).length;
-      if (notesCount) parts.push(`${notesCount} ${t("notesCount")}`);
-    }
-    if (options.highlights) {
-      const highlightsCount = listArticles.reduce((sum, a) => sum + (a.highlights?.length || 0), 0);
-      if (highlightsCount) parts.push(`${highlightsCount} ${t("highlights")}`);
-    }
-    if (options.aiSummary) {
-      const summaryCount = listArticles.filter(a => a.summary).length;
-      if (summaryCount) parts.push(`${summaryCount} ${t("includeAISummary")}`);
-    }
-    if (options.aiChat) {
-      const chatCount = listArticles.filter(a => a.chat && a.chat.length > 0).length;
-      if (chatCount) parts.push(`${chatCount} ${t("includeAIChat")}`);
-    }
+    syncOptionCounts(shareCollectionOptionsGrid, {
+      scIncludeArticles: listArticles.length,
+      scIncludeNotes: listArticles.filter(a => a.notes).length,
+      scIncludeTags: new Set(listArticles.flatMap(a => a.tags || [])).size,
+      scIncludeHighlights: listArticles.reduce((sum, a) => sum + (a.highlights?.length || 0), 0),
+    });
 
     // Re-render message preview with current options
     renderShareMessagePreview("collection", lists.find(l => l.id === shareCollectionId)?.name || "", shareCollectionNote.value);
@@ -1620,12 +2013,11 @@
     if (!list) return;
     const listArticles = getListArticles(shareCollectionId);
 
-    const checkboxes = shareCollectionOptionsGrid.querySelectorAll("input[type=checkbox]");
-    const includeNotes = checkboxes[0]?.checked ?? true;
-    const includeAISummary = checkboxes[1]?.checked ?? true;
-    const includeAIChat = checkboxes[2]?.checked ?? true;
-    const includeTags = checkboxes[3]?.checked ?? true;
-    const includeHighlights = checkboxes[4]?.checked ?? true;
+    const includeNotes = document.getElementById("scIncludeNotes")?.checked ?? true;
+    const includeAISummary = document.getElementById("scIncludeAISummary")?.checked ?? true;
+    const includeAIChat = document.getElementById("scIncludeAIChat")?.checked ?? true;
+    const includeTags = document.getElementById("scIncludeTags")?.checked ?? true;
+    const includeHighlights = document.getElementById("scIncludeHighlights")?.checked ?? true;
     const description = shareCollectionNote.value.trim();
 
     try {
@@ -1691,12 +2083,11 @@
       { id: "saIncludeAIChat", key: "shareOptionsAIChat", checked: true },
     ];
 
-    shareArticleOptionsGrid.innerHTML = options.map(opt => `
-      <label class="share-option-chip" data-option="${opt.id}">
-        <input type="checkbox" id="${opt.id}" ${opt.checked ? "checked" : ""} />
-        <span class="option-label">${t(opt.key)}</span>
-      </label>
-    `).join("");
+    renderShareOptionChips(shareArticleOptionsGrid, options);
+    syncOptionCounts(shareArticleOptionsGrid, {
+      saIncludeNotes: articleNotesCount(article),
+      saIncludeHighlights: article.highlights?.length || 0,
+    });
 
     // Render message preview
     renderShareMessagePreview("article", article.title, shareArticleNote.value);
@@ -1710,19 +2101,10 @@
   }
 
   function updateShareArticleSummary(article) {
-    const checkboxes = shareArticleOptionsGrid.querySelectorAll("input[type=checkbox]");
-    const options = {
-      notes: checkboxes[0]?.checked ?? true,
-      highlights: checkboxes[1]?.checked ?? true,
-      aiSummary: checkboxes[2]?.checked ?? true,
-      aiChat: checkboxes[3]?.checked ?? true,
-    };
-
-    let parts = [];
-    if (options.notes && article.notes) parts.push(`${t("notesCount")}`);
-    if (options.highlights && article.highlights?.length) parts.push(`${article.highlights.length} ${t("highlights")}`);
-    if (options.aiSummary && article.summary) parts.push(`${t("includeAISummary")}`);
-    if (options.aiChat && article.chat?.length) parts.push(`${t("includeAIChat")}`);
+    syncOptionCounts(shareArticleOptionsGrid, {
+      saIncludeNotes: articleNotesCount(article),
+      saIncludeHighlights: article.highlights?.length || 0,
+    });
 
     // Update message preview
     renderShareMessagePreview("article", article.title, shareArticleNote.value);
@@ -1786,30 +2168,6 @@
   }
 
   function renderShareMessagePreview(packageType, collectionName, description) {
-    const list = lists.find(l => l.id === shareCollectionId);
-    const article = articles.find(a => a.id === shareArticleId);
-
-    let options = {};
-    if (packageType === "collection") {
-      const checkboxes = shareCollectionOptionsGrid?.querySelectorAll("input[type=checkbox]");
-      options = {
-        articles: checkboxes?.[0]?.checked ?? true,
-        notes: checkboxes?.[1]?.checked ?? true,
-        aiSummary: checkboxes?.[2]?.checked ?? true,
-        aiChat: checkboxes?.[3]?.checked ?? true,
-        tags: checkboxes?.[4]?.checked ?? true,
-        highlights: checkboxes?.[5]?.checked ?? true,
-      };
-    } else {
-      const checkboxes = shareArticleOptionsGrid?.querySelectorAll("input[type=checkbox]");
-      options = {
-        notes: checkboxes?.[0]?.checked ?? true,
-        highlights: checkboxes?.[1]?.checked ?? true,
-        aiSummary: checkboxes?.[2]?.checked ?? true,
-        aiChat: checkboxes?.[3]?.checked ?? true,
-      };
-    }
-
     const instructions = window.ShareService.getShareInstructions(packageType, collectionName, description);
     const targetContentEl = packageType === "article" ? shareArticleMessageContent
       : packageType === "research-pack" ? researchPackMessageContent
@@ -1831,21 +2189,58 @@
     // Mirror the filled/unfilled state of the note field
     noteTextarea?.classList.toggle("share-note-filled", !!noteText);
 
-    // Render the ready message as clean paragraphs with the sender note highlighted
+    // Render the ready message as a recipient preview with clear hierarchy
     const paragraphs = instructions
       .split(/\n{2,}/)
       .map(para => para.trim())
       .filter(Boolean);
 
-    targetContentEl.innerHTML = paragraphs.map(para => {
+    const itemName = String(collectionName || "").trim();
+
+    targetContentEl.innerHTML = paragraphs.map((para, index) => {
       if (noteText && para === noteLabel) {
         return `<p class="share-note-label-p">${escapeHtml(para)}</p>`;
       }
       if (noteText && para === noteText) {
         return `<div class="share-note-box">${escapeHtml(para).replace(/\n/g, "<br>")}</div>`;
       }
-      return `<p>${escapeHtml(para).replace(/\n/g, "<br>")}</p>`;
+
+      let cls = "share-para";
+      if (index === 0) cls = "share-greet";
+      else if (index === paragraphs.length - 1) cls = "share-signoff";
+
+      let body = escapeHtml(para).replace(/\n/g, "<br>");
+
+      if (itemName && para.includes(itemName) && cls === "share-para") {
+        body = body.split(escapeHtml(itemName)).join(`<strong class="share-em">${escapeHtml(itemName)}</strong>`);
+      }
+
+      if (/https?:\/\//.test(para)) {
+        cls = "share-install";
+        const match = para.match(/https?:\/\/[^\s]+/);
+        if (match) {
+          const url = match[0];
+          body = escapeHtml(para.slice(0, match.index))
+            + `<span class="share-url">${escapeHtml(url)}</span>`
+            + escapeHtml(para.slice(match.index + url.length));
+        }
+      }
+
+      return `<p class="${cls}">${body}</p>`;
     }).join("");
+
+    const badgeIcon = packageType === "article" ? "bookmark-plus"
+      : packageType === "research-pack" ? "book-open-check"
+      : "folder";
+    const badgeName = itemName
+      || (packageType === "article" ? escapeHtml(t("noTitle"))
+        : packageType === "research-pack" ? escapeHtml(t("researchPack"))
+        : escapeHtml(t("researchPack")));
+    targetContentEl.innerHTML =
+      `<div class="share-item-badge">`
+      + `<span class="share-item-badge-icon" data-icon="${badgeIcon}" aria-hidden="true"></span>`
+      + `<span class="share-item-badge-name" dir="auto">${badgeName}</span>`
+      + `</div>` + targetContentEl.innerHTML;
 
     // Add copy handler
     const newBtn = targetCopyBtn.cloneNode(true);
@@ -1891,12 +2286,13 @@
     ];
 
     if (researchPackOptionsGrid) {
-      researchPackOptionsGrid.innerHTML = options.map(opt => `
-        <label class="share-option-chip" data-option="${opt.id}">
-          <input type="checkbox" id="${opt.id}" ${opt.checked ? "checked" : ""} />
-          <span class="option-label">${t(opt.key)}</span>
-        </label>
-      `).join("");
+      renderShareOptionChips(researchPackOptionsGrid, options);
+      const packArticles = researchPackArticles;
+      syncOptionCounts(researchPackOptionsGrid, {
+        rpIncludeNotes: packArticles.filter(a => a.notes).length,
+        rpIncludeTags: new Set(packArticles.flatMap(a => a.tags || [])).size,
+        rpIncludeHighlights: packArticles.reduce((sum, a) => sum + (a.highlights?.length || 0), 0),
+      });
     }
 
     updateResearchPackCount();
@@ -1980,144 +2376,208 @@
 
   function openArticleSelectModal() {
     const selectedListId = listSelect.value || null;
-    const listArticles = window.PackageService.selectArticlesForList(articles, selectedListId);
-    if (!listArticles.length) {
+    pickerArticlePool = window.PackageService.selectArticlesForList(articles, selectedListId);
+    if (!pickerArticlePool.length) {
       showToast(t("noArticlesSelected"), "error");
       return;
     }
 
     articleSelectionMode = true;
     selectedArticleIds.clear();
-    renderArticleSelectionList(listArticles);
+    pickerSearchQuery = "";
+    pickerActiveFilter = "all";
+    if (articleSelectSearch) articleSelectSearch.value = "";
+    updateFilterChips();
+    renderPickerMetadata();
+    renderArticleSelectionList();
     articleSelectModal.classList.remove("hidden");
   }
 
-  function renderArticleSelectionList(listArticles) {
-    articleSelectionList.innerHTML = "";
+  function renderPickerMetadata() {
+    const listIds = new Set(pickerArticlePool.map((a) => a.listId));
+    let sourceName = t("allLists");
+    if (listIds.size === 1) {
+      const list = lists.find((l) => l.id === pickerArticlePool[0].listId);
+      sourceName = list ? list.name : t("noList");
+    }
+    articleSelectSource.textContent = sourceName;
+    articleSelectSource.setAttribute("dir", "auto");
+    articleSelectAvailable.textContent = t("pickerArticlesAvailable", { count: pickerArticlePool.length });
+  }
 
-    // Group articles by list
+  function pickerSearchMatches(a, q) {
+    const title = String(a.title || "").toLowerCase();
+    let domain = "";
+    try { domain = a.url ? new URL(a.url).hostname.toLowerCase() : ""; } catch (_) { /* ignore */ }
+    const authors = (a.authors || []).join(" ").toLowerCase();
+    const tags = (a.tags || []).join(" ").toLowerCase();
+    return title.includes(q) || domain.includes(q) || authors.includes(q) || tags.includes(q);
+  }
+
+  function pickerFilterMatches(a, filter) {
+    if (filter === "notes") return !!a.notes;
+    if (filter === "summary") return !!a.summary;
+    if (filter === "tags") return !!(a.tags && a.tags.length);
+    return true;
+  }
+
+  function filteredPickerArticles() {
+    const q = pickerSearchQuery.trim().toLowerCase();
+    let out = pickerArticlePool;
+    if (pickerActiveFilter !== "all") out = out.filter((a) => pickerFilterMatches(a, pickerActiveFilter));
+    if (q) out = out.filter((a) => pickerSearchMatches(a, q));
+    return out;
+  }
+
+  function renderArticleSelectionList() {
+    articleSelectionList.innerHTML = "";
+    const items = filteredPickerArticles();
+
+    if (!items.length) {
+      articleSelectionList.classList.add("hidden");
+      pickerEmptyState.textContent = t("pickerNoResults");
+      pickerEmptyState.classList.remove("hidden");
+      return;
+    }
+    pickerEmptyState.classList.add("hidden");
+    articleSelectionList.classList.remove("hidden");
+
     const articlesByList = new Map();
-    for (const article of listArticles) {
-      const list = lists.find(l => l.id === article.listId);
+    for (const article of items) {
+      const list = lists.find((l) => l.id === article.listId);
       const listName = list ? list.name : t("noList");
-      if (!articlesByList.has(listName)) {
-        articlesByList.set(listName, []);
-      }
+      if (!articlesByList.has(listName)) articlesByList.set(listName, []);
       articlesByList.get(listName).push(article);
     }
-
-    // Sort lists by name for consistent ordering
     const sortedLists = Array.from(articlesByList.entries()).sort((a, b) => a[0].localeCompare(b[0]));
 
-    for (const [listName, articles] of sortedLists) {
-      const listId = "list-group-" + listName.replace(/[^a-zA-Z0-9]/g, "-");
-      const allSelected = articles.every(a => selectedArticleIds.has(a.id));
-      const someSelected = articles.some(a => selectedArticleIds.has(a.id));
-
-      const group = document.createElement("div");
-      group.className = "article-selection-group";
-      group.innerHTML = `
-        <div class="article-selection-group-header">
-          <label class="checkbox-group-label">
-            <input type="checkbox" class="group-select-all" data-list="${escapeHtml(listName)}" ${allSelected ? "checked" : ""} ${someSelected && !allSelected ? 'indeterminate' : ""} />
-            <span class="group-name">${escapeHtml(listName)}</span>
-            <span class="group-count">(${articles.length} ${t("articlesCount")})</span>
-          </label>
-        </div>
-        <div class="article-selection-group-items" id="${listId}"></div>
-      `;
-
-      const itemsContainer = group.querySelector(".article-selection-group-items");
-      for (const article of articles) {
-        const item = document.createElement("div");
-        item.className = "article-selection-item";
-        const isSelected = selectedArticleIds.has(article.id);
-        item.innerHTML = `
-          <input type="checkbox" class="article-selection-checkbox" data-id="${article.id}" ${isSelected ? "checked" : ""} />
-          <div class="article-selection-info">
-            <div class="article-selection-title">${escapeHtml(article.title || t("noTitle"))}</div>
-            <div class="article-selection-meta">
-              ${(() => { try { return article.url ? escapeHtml(new URL(article.url).hostname) : ""; } catch (_) { return ""; } })()}
-              ${article.savedAt ? " · " + new Date(article.savedAt).toLocaleDateString() : ""}
-            </div>
-          </div>
-        `;
-        const checkbox = item.querySelector(".article-selection-checkbox");
-        checkbox.addEventListener("change", () => {
-          if (checkbox.checked) selectedArticleIds.add(article.id);
-          else selectedArticleIds.delete(article.id);
-          updateGroupCheckbox(listName);
-          updateSelectionCount();
-        });
-        itemsContainer.appendChild(item);
+    if (sortedLists.length === 1) {
+      sortedLists[0][1].forEach((a) => renderPickerRow(articleSelectionList, a));
+    } else {
+      for (const [listName, articles] of sortedLists) {
+        const group = document.createElement("div");
+        group.className = "picker-group";
+        const head = document.createElement("div");
+        head.className = "picker-group-head";
+        const name = document.createElement("span");
+        name.className = "picker-group-name";
+        name.setAttribute("dir", "auto");
+        name.textContent = listName;
+        let unit = t("articlesCount");
+        const lang = (window.I18N && window.I18N.lang) || "";
+        if (articles.length === 1 && lang.startsWith("en") && unit.endsWith("s")) unit = unit.slice(0, -1);
+        const count = document.createElement("span");
+        count.className = "picker-group-count";
+        count.textContent = articles.length + " " + unit;
+        head.appendChild(name);
+        head.appendChild(count);
+        const itemsContainer = document.createElement("div");
+        itemsContainer.className = "picker-group-items";
+        articles.forEach((a) => renderPickerRow(itemsContainer, a));
+        group.appendChild(head);
+        group.appendChild(itemsContainer);
+        articleSelectionList.appendChild(group);
       }
-
-      const groupCheckbox = group.querySelector(".group-select-all");
-      groupCheckbox.addEventListener("change", () => {
-        const checked = groupCheckbox.checked;
-        for (const article of articles) {
-          if (checked) selectedArticleIds.add(article.id);
-          else selectedArticleIds.delete(article.id);
-        }
-        // Update individual checkboxes
-        itemsContainer.querySelectorAll(".article-selection-checkbox").forEach(cb => {
-          cb.checked = checked;
-        });
-        updateSelectionCount();
-      });
-
-      articleSelectionList.appendChild(group);
     }
+    refreshSelectedRows();
     updateSelectionCount();
   }
 
-  function updateGroupCheckbox(listName) {
-    const itemsContainer = document.querySelector(`#list-group-${listName.replace(/[^a-zA-Z0-9]/g, "-")}`);
-    if (!itemsContainer) return;
-    const checkboxes = itemsContainer.querySelectorAll(".article-selection-checkbox");
-    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-    const someChecked = Array.from(checkboxes).some(cb => cb.checked);
-    const groupCheckbox = document.querySelector(`.group-select-all[data-list="${escapeHtml(listName)}"]`);
-    if (groupCheckbox) {
-      groupCheckbox.checked = allChecked;
-      groupCheckbox.indeterminate = someChecked && !allChecked;
-    }
+  function renderPickerRow(container, article) {
+    const item = document.createElement("label");
+    item.className = "picker-item";
+    item.dataset.id = article.id;
+    const isSelected = selectedArticleIds.has(article.id);
+    if (isSelected) item.classList.add("selected");
+    const title = article.title || t("noTitle");
+    let domain = "";
+    try { domain = article.url ? new URL(article.url).hostname : ""; } catch (_) { /* ignore */ }
+    const date = article.savedAt
+      ? " · " + new Date(article.savedAt).toLocaleDateString(window.I18N.lang, { year: "numeric", month: "numeric", day: "numeric" })
+      : "";
+    const dateLtr = /[\u0590-\u05FF\u0621-\u064A\u2026]/.test(date) ? "" : " ltr-keep";
+    item.innerHTML = `
+      <input type="checkbox" class="article-selection-checkbox" data-id="${article.id}" ${isSelected ? "checked" : ""} aria-label="${escapeHtml(title)}" />
+      <span class="picker-item-main">
+        <span class="picker-item-title" dir="auto" title="${escapeHtml(title)}">${escapeHtml(title)}</span>
+        <span class="picker-item-meta">
+          ${domain ? `<span class="picker-item-domain" dir="ltr">${escapeHtml(domain)}</span>` : ""}<span class="picker-item-date${dateLtr}">${escapeHtml(date)}</span>
+        </span>
+      </span>
+    `;
+    const checkbox = item.querySelector(".article-selection-checkbox");
+    checkbox.addEventListener("change", () => {
+      if (checkbox.checked) selectedArticleIds.add(article.id);
+      else selectedArticleIds.delete(article.id);
+      item.classList.toggle("selected", checkbox.checked);
+      updateSelectionCount();
+    });
+    container.appendChild(item);
+  }
+
+  function refreshSelectedRows() {
+    articleSelectionList.querySelectorAll(".picker-item").forEach((row) => {
+      const cb = row.querySelector(".article-selection-checkbox");
+      row.classList.toggle("selected", !!(cb && cb.checked));
+    });
+  }
+
+  function updateFilterChips() {
+    if (!pickerFilterChips) return;
+    pickerFilterChips.querySelectorAll(".picker-chip").forEach((c) => {
+      c.classList.toggle("active", c.dataset.filter === pickerActiveFilter);
+    });
   }
 
   function updateSelectionCount() {
-    selectionCount.textContent = t("articlesSelected", { count: selectedArticleIds.size });
+    const n = selectedArticleIds.size;
+    selectionCount.textContent = t("pickerSelectedCount", { count: n });
+    if (n === 0) {
+      selectAllBtn.classList.remove("hidden");
+      deselectAllBtn.classList.add("hidden");
+    } else {
+      selectAllBtn.classList.add("hidden");
+      deselectAllBtn.classList.remove("hidden");
+    }
+    if (pickerEmptyHint) pickerEmptyHint.classList.toggle("picker-empty-hint-visible", n === 0);
+    updatePickerCta();
+  }
+
+  function updatePickerCta() {
+    const n = selectedArticleIds.size;
+    if (n === 0) {
+      articleSelectConfirmBtn.disabled = true;
+      articleSelectConfirmBtn.textContent = t("createResearchPack");
+      return;
+    }
+    articleSelectConfirmBtn.disabled = false;
+    let unit = t("articlesCount");
+    const lang = (window.I18N && window.I18N.lang) || "";
+    if (n === 1 && lang.startsWith("en") && unit.endsWith("s")) unit = unit.slice(0, -1);
+    articleSelectConfirmBtn.textContent = t("pickerCreateAction") + " " + n + " " + unit;
   }
 
   function selectAllArticles() {
-    const checkboxes = articleSelectionList.querySelectorAll(".article-selection-checkbox");
-    checkboxes.forEach((cb) => {
+    articleSelectionList.querySelectorAll(".article-selection-checkbox").forEach((cb) => {
       cb.checked = true;
       selectedArticleIds.add(cb.dataset.id);
     });
-    // Update all group checkboxes
-    articleSelectionList.querySelectorAll(".group-select-all").forEach(g => {
-      g.checked = true;
-      g.indeterminate = false;
-    });
+    refreshSelectedRows();
     updateSelectionCount();
   }
 
   function deselectAllArticles() {
-    const checkboxes = articleSelectionList.querySelectorAll(".article-selection-checkbox");
-    checkboxes.forEach((cb) => {
+    selectedArticleIds.clear();
+    articleSelectionList.querySelectorAll(".article-selection-checkbox").forEach((cb) => {
       cb.checked = false;
-      selectedArticleIds.delete(cb.dataset.id);
     });
-    articleSelectionList.querySelectorAll(".group-select-all").forEach(g => {
-      g.checked = false;
-      g.indeterminate = false;
-    });
+    refreshSelectedRows();
     updateSelectionCount();
   }
 
   function confirmArticleSelection() {
     if (selectedArticleIds.size === 0) {
-      alert(t("atLeastOneArticle"));
+      showToast(t("atLeastOneArticle"), "error");
       return;
     }
     const selectedArticles = articles.filter((a) => selectedArticleIds.has(a.id));
@@ -2129,6 +2589,7 @@
     articleSelectModal.classList.add("hidden");
     articleSelectionMode = false;
     selectedArticleIds.clear();
+    pickerArticlePool = [];
   }
 
   function openImportModal() {
@@ -2689,7 +3150,42 @@
     activeListId = listSelect.value || null;
     if (activeListId) await setSetting("activeListId", activeListId);
     else await setSetting("activeListId", null);
+    renderListDropdown();
     renderLists();
+  });
+
+  listSelectBtn.addEventListener("click", (e) => {
+    e.stopPropagation();
+    toggleListDropdown();
+  });
+  listDropdownMenu.addEventListener("click", (e) => e.stopPropagation());
+  listDropdownMenu.addEventListener("keydown", (e) => {
+    const opts = [...listDropdownMenu.querySelectorAll(".list-dropdown-option:not(:disabled)")];
+    if (!opts.length) return;
+    const i = opts.indexOf(document.activeElement);
+    if (e.key === "ArrowDown" || e.key === "ArrowUp") {
+      e.preventDefault();
+      const next = opts[(i + (e.key === "ArrowDown" ? 1 : -1) + opts.length) % opts.length];
+      next.focus();
+    } else if (e.key === "Home") {
+      e.preventDefault();
+      opts[0].focus();
+    } else if (e.key === "End") {
+      e.preventDefault();
+      opts[opts.length - 1].focus();
+    }
+  });
+  document.addEventListener("click", (e) => {
+    if (!listDropdownMenu.classList.contains("hidden") && !listDropdown.contains(e.target)) {
+      closeListDropdown();
+    }
+  });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape" && !listDropdownMenu.classList.contains("hidden")) {
+      e.preventDefault();
+      closeListDropdown();
+      listSelectBtn.focus();
+    }
   });
 
   searchInput.addEventListener("input", () => {
@@ -2717,15 +3213,26 @@
   if (shareReadyModal) shareReadyModal.addEventListener("click", (e) => { if (e.target === shareReadyModal) closeShareReadyModal(); });
 
   if (shareCollectionNote) {
+    autoGrowNote(shareCollectionNote);
     shareCollectionNote.addEventListener("input", () => {
+      autoGrowNote(shareCollectionNote);
       const list = lists.find((l) => l.id === shareCollectionId);
       if (list) renderShareMessagePreview("collection", list.name, shareCollectionNote.value);
     });
   }
   if (shareArticleNote) {
+    autoGrowNote(shareArticleNote);
     shareArticleNote.addEventListener("input", () => {
+      autoGrowNote(shareArticleNote);
       const article = articles.find((a) => a.id === shareArticleId);
       if (article) renderShareMessagePreview("article", article.title, shareArticleNote.value);
+    });
+  }
+  if (researchPackDescription) {
+    autoGrowNote(researchPackDescription);
+    researchPackDescription.addEventListener("input", () => {
+      autoGrowNote(researchPackDescription);
+      renderResearchPackMessagePreview();
     });
   }
 
@@ -2772,6 +3279,19 @@
   articleSelectConfirmBtn.addEventListener("click", confirmArticleSelection);
   articleSelectCancelBtn.addEventListener("click", closeArticleSelectModal);
   articleSelectModal.addEventListener("click", (e) => { if (e.target === articleSelectModal) closeArticleSelectModal(); });
+
+  articleSelectSearch.addEventListener("input", () => {
+    pickerSearchQuery = articleSelectSearch.value;
+    renderArticleSelectionList();
+  });
+
+  pickerFilterChips.addEventListener("click", (e) => {
+    const chip = e.target.closest(".picker-chip");
+    if (!chip) return;
+    pickerActiveFilter = chip.dataset.filter;
+    updateFilterChips();
+    renderArticleSelectionList();
+  });
 
   /* Toast notification system */
   const TOAST_ICONS = {

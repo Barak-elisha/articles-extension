@@ -10,41 +10,58 @@
 <body>
   <header class="app-header">
     <div class="brand"><span class="brand-mark" data-icon="book-open-check" aria-hidden="true"></span><div><div class="app-title" data-i18n="appTitle">Article Saver</div><div class="app-subtitle" data-i18n="appSubtitle">Your personal reading space</div></div></div>
-    <div class="header-actions">
+<div class="header-actions">
       <button id="expandBtn" class="gear-btn" data-i18n-title="expandTitle" title="Open in full size" aria-label="Open in full size" data-icon="arrow-up-right"></button>
+      <button id="whatsNewBtn" class="gear-btn whatsnew-bell" data-i18n-title="whatsNewButton" title="What's new" aria-label="What's new" data-icon="bell"><span class="whatsnew-bell-dot" aria-hidden="true"></span></button>
       <button id="settingsBtn" class="gear-btn" data-i18n-title="settingsTitle" title="Settings" aria-label="Settings" data-icon="settings-2"></button>
     </div>
   </header>
 
   <div id="mainView">
-    <section id="saveSection" class="card">
-      <div class="save-heading" data-i18n="saveHeading">Keep a good read.</div>
-      <p class="section-description" data-i18n="saveDescription">Save articles. Make room for ideas.</p>
+    <section id="saveSection" class="save-panel">
+      <h2 class="save-heading" data-i18n="saveHeading">Keep a good read.</h2>
+      <p class="save-tagline" data-i18n="saveDescription">Save articles. Make room for ideas.</p>
 
-      <div class="list-manager">
-        <label class="label" for="listSelect" data-i18n="activeList">Save to list</label>
-        <div class="list-select-wrapper">
-          <select id="listSelect" class="select"></select>
-          <button id="newListBtn" class="icon-btn" data-icon="plus" data-i18n-title="createNewList" title="Create new list" aria-label="Create new list"></button>
+      <div class="save-field-label" data-i18n="activeList">Save to list</div>
+      <select id="listSelect" class="save-select hidden" dir="auto" tabindex="-1" aria-hidden="true"></select>
+      <div class="list-dropdown" id="listDropdown">
+        <button id="listSelectBtn" type="button" class="list-dropdown-trigger" aria-haspopup="listbox" aria-expanded="false">
+          <span class="select-folder" data-icon="folder" aria-hidden="true"></span>
+          <span id="listSelectLabel" class="list-dropdown-label" dir="auto"></span>
+          <span class="select-chevron" data-icon="chevron-down" aria-hidden="true"></span>
+        </button>
+        <div id="listDropdownMenu" class="list-dropdown-menu hidden" role="listbox"></div>
+      </div>
+      <div class="new-list-row">
+        <button id="newListBtn" type="button" class="new-list-btn" data-icon="plus">
+          <span data-i18n="createNewListLabel">New list</span>
+        </button>
+      </div>
+      <div id="newListInline" class="new-list-inline hidden">
+        <input id="newListName" class="input" type="text" data-i18n-placeholder="newListPlaceholder" placeholder="New list name" aria-label="New list name" dir="auto" />
+        <div class="new-list-actions">
+          <button id="confirmNewListBtn" class="btn btn-primary btn-small" data-i18n="create">Create</button>
+          <button id="cancelNewListBtn" class="btn btn-secondary btn-small" data-i18n="cancel">Cancel</button>
         </div>
-        <div id="newListInline" class="new-list-inline hidden">
-          <input id="newListName" class="input" type="text" data-i18n-placeholder="newListPlaceholder" placeholder="New list name" aria-label="New list name" />
-          <div class="new-list-actions">
-            <button id="confirmNewListBtn" class="btn btn-primary btn-small" data-i18n="create">Create</button>
-            <button id="cancelNewListBtn" class="btn btn-secondary btn-small" data-i18n="cancel">Cancel</button>
-          </div>
-        </div>
-        <button id="saveBtn" data-icon="bookmark-plus" class="btn btn-primary" data-i18n="saveCurrent">Save current article</button>
-        <label class="checkbox">
-          <input type="checkbox" id="aiToggle" />
-          <span data-i18n="aiToggleLabel">Include an AI summary</span>
+      </div>
+      <button id="saveBtn" type="button" class="btn btn-primary save-hero" data-icon="bookmark-plus" data-i18n="saveCurrent">Save article</button>
+
+      <div class="ai-extra">
+        <label class="ai-extra-row" for="aiToggle">
+          <span class="ai-extra-icon" data-icon="sparkles" aria-hidden="true"></span>
+          <span class="ai-extra-copy">
+            <span id="aiToggleTitle" class="ai-extra-title" data-i18n="aiToggleLabel">Add AI summary</span>
+            <span class="ai-extra-hint" data-i18n="aiToggleHint">Generates a summary after saving</span>
+          </span>
+          <input type="checkbox" id="aiToggle" class="ai-toggle-input" aria-labelledby="aiToggleTitle" />
+          <span class="ai-toggle-track" aria-hidden="true"><span class="ai-toggle-knob"></span></span>
         </label>
-        <p class="section-description" data-i18n="aiDisclosure">AI sends the article and chat to Google for processing. Optional; uses your API key.</p>
-        <div id="saveStatus" class="status" role="status" aria-live="polite"></div>
       </div>
 
-      <div class="import-inline">
-        <button id="importBtn" class="btn btn-secondary" data-icon="folder" data-i18n="importAction">Open shared file</button>
+      <div id="saveStatus" class="status save-status" role="status" aria-live="polite"></div>
+
+      <div class="save-secondary">
+        <button id="importBtn" type="button" class="import-btn" data-icon="folder" data-i18n="importAction">Open shared file</button>
       </div>
     </section>
 
@@ -124,11 +141,37 @@
         <a href="https://ai.google.dev/gemini-api/docs/billing" target="_blank" rel="noopener noreferrer" data-i18n="aiUsageLearnMore">About usage and billing</a>
       </aside>
     </section>
-    <div class="footer">
-      <div>Article Saver v1.2.0 · MIT License</div>
-      <div>© 2026 Barak Elisha</div>
-      <div><a href="https://github.com/Barak-elisha/articles-extension" target="_blank" rel="noopener noreferrer">GitHub Repository</a></div>
-    </div>
+    <section id="aboutSection" class="card about-card" aria-labelledby="aboutTitle">
+      <h2 class="about-title" id="aboutTitle" data-i18n="aboutTitle">About Article Saver</h2>
+      <a class="about-row about-row-primary" href="https://chromewebstore.google.com/detail/article-saver/coagndppgjemdfaakejdclhhgmjppdlf/reviews" target="_blank" rel="noopener noreferrer">
+        <span class="about-icon" data-icon="star" aria-hidden="true"></span>
+        <span class="about-text">
+          <strong data-i18n="rateTitle">Rate Article Saver</strong>
+          <span data-i18n="rateSubtitle">Help more researchers discover it</span>
+        </span>
+        <span class="about-ext" data-icon="arrow-up-right" aria-hidden="true"></span>
+      </a>
+      <a class="about-row" href="https://github.com/Barak-elisha/articles-extension" target="_blank" rel="noopener noreferrer">
+        <span class="about-icon" data-icon="github" aria-hidden="true"></span>
+        <span class="about-text">
+          <strong data-i18n="repoTitle">GitHub Repository</strong>
+          <span data-i18n="repoSubtitle">View the source code</span>
+        </span>
+        <span class="about-ext" data-icon="arrow-up-right" aria-hidden="true"></span>
+      </a>
+      <a class="about-row" href="https://github.com/Barak-elisha/articles-extension/issues" target="_blank" rel="noopener noreferrer">
+        <span class="about-icon" data-icon="bug" aria-hidden="true"></span>
+        <span class="about-text">
+          <strong data-i18n="issueTitle">Report an issue</strong>
+          <span data-i18n="issueSubtitle">Found a bug or have a suggestion?</span>
+        </span>
+        <span class="about-ext" data-icon="arrow-up-right" aria-hidden="true"></span>
+      </a>
+      <div class="about-meta">
+        <div class="about-version">Article Saver v1.2.0</div>
+        <div class="about-legal">MIT License · © 2026 Barak Elisha</div>
+      </div>
+    </section>
   </div>
 
   <div id="detailView" class="detail hidden">
@@ -159,50 +202,86 @@
     </div>
   </div>
 
+  <div id="renameModal" class="modal-overlay hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="renameModalTitle">
+      <div class="modal-title" id="renameModalTitle" data-i18n="renameListTitle">Rename list</div>
+      <div class="modal-body">
+        <input id="renameInput" class="input" type="text" data-i18n-placeholder="renamePrompt" placeholder="New list name" aria-label="New list name" />
+      </div>
+      <div class="modal-actions">
+        <button id="renameSaveBtn" class="btn btn-primary" data-i18n="renameAction">Rename</button>
+        <button id="renameCancelBtn" class="btn btn-secondary" data-i18n="cancelButton">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="confirmModal" class="modal-overlay hidden">
+    <div class="modal" role="dialog" aria-modal="true" aria-labelledby="confirmModalTitle">
+      <div class="modal-title" id="confirmModalTitle" data-i18n="deleteListTitle">Confirm</div>
+      <div class="modal-body" id="confirmModalBody"></div>
+      <div class="modal-actions">
+        <button id="confirmOkBtn" class="btn btn-danger" data-i18n="delete">Delete</button>
+        <button id="confirmCancelBtn" class="btn btn-secondary" data-i18n="cancelButton">Cancel</button>
+      </div>
+    </div>
+  </div>
+
   <div id="chatContextMenu" class="ctx-menu hidden"></div>
 
   <div id="shareModal" class="modal-overlay hidden">
     <div class="modal modal-share" role="dialog" aria-modal="true" aria-labelledby="shareCollectionTitle">
       <div class="share-sheet">
-        <div class="share-header">
-          <div class="share-kind-icon" data-icon="folder" aria-hidden="true"></div>
-          <div class="share-header-copy">
-            <span class="share-kicker" data-i18n="shareCollectionKicker">A list from your library</span>
+        <header class="share-hero">
+          <div class="share-hero-icon" data-icon="folder" aria-hidden="true"></div>
+          <div class="share-hero-copy">
+            <span class="share-kicker" data-i18n="shareCollectionKicker">From your library</span>
             <h2 class="share-title" id="shareCollectionTitle" data-i18n="shareCollectionTitle">Share Collection</h2>
-            <p class="share-name" id="shareCollectionName"></p>
-            <p class="share-stats" id="shareCollectionStats"></p>
+            <p class="share-name" id="shareCollectionName" dir="auto"></p>
+            <p class="share-stats" id="shareCollectionStats" dir="auto"></p>
           </div>
+        </header>
+
+        <div class="share-body">
+          <section class="share-section" id="shareCollectionOptions">
+            <div class="share-section-head">
+              <span class="share-step" aria-hidden="true">1</span>
+              <h3 class="share-section-title" data-i18n="includeOptions">Include</h3>
+            </div>
+            <div class="share-options-grid" id="shareCollectionOptionsGrid"></div>
+          </section>
+
+          <section class="share-section">
+            <div class="share-section-head">
+              <span class="share-step" aria-hidden="true">2</span>
+              <h3 class="share-section-title" data-i18n="shareNoteLabel">Optional note</h3>
+            </div>
+            <textarea id="shareCollectionNote" class="share-note-input" rows="2" data-i18n-placeholder="shareNotePlaceholder"></textarea>
+          </section>
+
+          <section class="share-section">
+            <div class="share-message-header">
+              <h3 class="share-section-title" data-i18n="shareMessageLabel">Prepared message</h3>
+              <button type="button" class="share-copy-btn" id="shareCopyBtn" data-i18n-label="copyLabel">
+                <svg class="copy-btn-icon copy-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <span class="copy-btn-label" data-i18n="copyLabel">Copy</span>
+                <span class="copy-feedback">
+                  <svg class="copy-btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                  <span data-i18n="copiedShort">Copied</span>
+                </span>
+              </button>
+            </div>
+            <div class="share-message-preview" id="shareMessagePreview">
+              <div class="share-message-content" id="shareMessageContent"></div>
+            </div>
+          </section>
+
+          <div class="share-warning"><span class="share-warning-icon" data-icon="alert-triangle" aria-hidden="true"></span><div class="share-warning-copy"><p class="share-warning-title" data-i18n="shareWarningTitle">Heads up before you share</p><p class="share-warning-body" data-i18n="shareWarningBody">The content you selected will be sent to others. Make sure you're sharing it with the right people.</p></div></div>
         </div>
 
-        <div class="share-options-section" id="shareCollectionOptions">
-          <h3 class="share-options-title" data-i18n="includeOptions">Include</h3>
-          <div class="share-options-grid" id="shareCollectionOptionsGrid"></div>
-        </div>
-
-        <div class="share-note-section">
-          <label for="shareCollectionNote" data-i18n="shareNoteLabel">A personal note for the recipient (optional)</label>
-          <textarea id="shareCollectionNote" class="share-note-input" rows="2" data-i18n-placeholder="shareNotePlaceholder" placeholder="A personal note for the recipient..."></textarea>
-        </div>
-
-        <div class="share-message-section">
-          <div class="share-message-header">
-            <h3 class="share-message-title" data-i18n="shareMessageLabel">Message</h3>
-            <button class="share-copy-btn" id="shareCopyBtn" type="button" data-i18n-label="copyLabel">
-              <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-              <span class="copy-feedback" data-feedback>✓ <span data-i18n="copiedToClipboard"></span></span>
-            </button>
-          </div>
-          <div class="share-message-preview" id="shareMessagePreview">
-            <div class="share-message-content" id="shareMessageContent"></div>
-          </div>
-        </div>
-
-        <p class="share-privacy-notice" data-i18n="sharePrivacyNotice"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg><span>Shared directly from your device. Article Saver never receives this content.</span></p>
-
-        <div class="share-actions">
-          <button type="button" id="shareNativeBtn" class="btn btn-primary share-primary-action" data-icon="send" data-i18n="sharePrepareAction">Prepare to share</button>
-          <button type="button" id="shareCancelBtn" class="btn btn-quiet" data-i18n="cancelButton">Cancel</button>
-        </div>
+        <footer class="share-actions">
+          <button type="button" id="shareNativeBtn" class="btn btn-primary share-primary-action" data-icon="send" data-i18n="sharePrepareAction">Share now</button>
+          <button type="button" id="shareCancelBtn" class="btn btn-quiet share-cancel-btn" data-i18n="cancelButton">Cancel</button>
+        </footer>
       </div>
     </div>
   </div>
@@ -210,45 +289,57 @@
   <div id="shareArticleModal" class="modal-overlay hidden">
     <div class="modal modal-share" role="dialog" aria-modal="true" aria-labelledby="shareArticleTitle">
       <div class="share-sheet">
-        <div class="share-header">
-          <div class="share-kind-icon" data-icon="bookmark-plus" aria-hidden="true"></div>
-          <div class="share-header-copy">
-            <span class="share-kicker" data-i18n="shareArticleKicker">An article from your library</span>
+        <header class="share-hero">
+          <div class="share-hero-icon" data-icon="bookmark-plus" aria-hidden="true"></div>
+          <div class="share-hero-copy">
+            <span class="share-kicker" data-i18n="shareArticleKicker">From your library</span>
             <h2 class="share-title" id="shareArticleTitle" data-i18n="shareArticleTitle">Share Article</h2>
-            <p class="share-name" id="shareArticleName"></p>
-            <p class="share-stats" id="shareArticleStats"></p>
+            <p class="share-name" id="shareArticleName" dir="auto"></p>
+            <p class="share-stats" id="shareArticleStats" dir="auto"></p>
           </div>
+        </header>
+
+        <div class="share-body">
+          <section class="share-section" id="shareArticleOptions">
+            <div class="share-section-head">
+              <span class="share-step" aria-hidden="true">1</span>
+              <h3 class="share-section-title" data-i18n="includeOptions">Include</h3>
+            </div>
+            <div class="share-options-grid" id="shareArticleOptionsGrid"></div>
+          </section>
+
+          <section class="share-section">
+            <div class="share-section-head">
+              <span class="share-step" aria-hidden="true">2</span>
+              <h3 class="share-section-title" data-i18n="shareNoteLabel">Optional note</h3>
+            </div>
+            <textarea id="shareArticleNote" class="share-note-input" rows="2" data-i18n-placeholder="shareNotePlaceholder"></textarea>
+          </section>
+
+          <section class="share-section">
+            <div class="share-message-header">
+              <h3 class="share-section-title" data-i18n="shareMessageLabel">Prepared message</h3>
+              <button type="button" class="share-copy-btn" id="shareArticleCopyBtn" data-i18n-label="copyLabel">
+                <svg class="copy-btn-icon copy-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+                <span class="copy-btn-label" data-i18n="copyLabel">Copy</span>
+                <span class="copy-feedback">
+                  <svg class="copy-btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                  <span data-i18n="copiedShort">Copied</span>
+                </span>
+              </button>
+            </div>
+            <div class="share-message-preview" id="shareArticleMessagePreview">
+              <div class="share-message-content" id="shareArticleMessageContent"></div>
+            </div>
+          </section>
+
+          <div class="share-warning"><span class="share-warning-icon" data-icon="alert-triangle" aria-hidden="true"></span><div class="share-warning-copy"><p class="share-warning-title" data-i18n="shareWarningTitle">Heads up before you share</p><p class="share-warning-body" data-i18n="shareWarningBody">The content you selected will be sent to others. Make sure you're sharing it with the right people.</p></div></div>
         </div>
 
-        <div class="share-options-section" id="shareArticleOptions">
-          <h3 class="share-options-title" data-i18n="includeOptions">Include</h3>
-          <div class="share-options-grid" id="shareArticleOptionsGrid"></div>
-        </div>
-
-        <div class="share-note-section">
-          <label for="shareArticleNote" data-i18n="shareNoteLabel">A personal note for the recipient (optional)</label>
-          <textarea id="shareArticleNote" class="share-note-input" rows="2" data-i18n-placeholder="shareNotePlaceholder" placeholder="A personal note for the recipient..."></textarea>
-        </div>
-
-        <div class="share-message-section">
-          <div class="share-message-header">
-            <h3 class="share-message-title" data-i18n="shareMessageLabel">Message</h3>
-            <button class="share-copy-btn" id="shareArticleCopyBtn" type="button" data-i18n-label="copyLabel">
-              <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-              <span class="copy-feedback" data-feedback>✓ <span data-i18n="copiedToClipboard"></span></span>
-            </button>
-          </div>
-          <div class="share-message-preview" id="shareArticleMessagePreview">
-            <div class="share-message-content" id="shareArticleMessageContent"></div>
-          </div>
-        </div>
-
-        <p class="share-privacy-notice" data-i18n="sharePrivacyNotice"><svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg><span>Shared directly from your device. Article Saver never receives this content.</span></p>
-
-        <div class="share-actions">
-          <button type="button" id="shareArticleNativeBtn" class="btn btn-primary share-primary-action" data-icon="send" data-i18n="sharePrepareAction">Prepare to share</button>
-          <button type="button" id="shareArticleCancelBtn" class="btn btn-quiet" data-i18n="cancelButton">Cancel</button>
-        </div>
+        <footer class="share-actions">
+          <button type="button" id="shareArticleNativeBtn" class="btn btn-primary share-primary-action" data-icon="send" data-i18n="sharePrepareAction">Share now</button>
+          <button type="button" id="shareArticleCancelBtn" class="btn btn-quiet share-cancel-btn" data-i18n="cancelButton">Cancel</button>
+        </footer>
       </div>
     </div>
   </div>
@@ -309,8 +400,12 @@
           <div class="share-message-header">
             <h3 class="share-message-title" data-i18n="shareMessageLabel">Message</h3>
             <button class="share-copy-btn" id="researchPackCopyBtn" type="button" data-i18n-label="copyLabel">
-              <svg class="copy-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
-              <span class="copy-feedback" data-feedback>✓ <span data-i18n="copiedToClipboard"></span></span>
+              <svg class="copy-btn-icon copy-icon-svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+              <span class="copy-btn-label" data-i18n="copyLabel">Copy</span>
+              <span class="copy-feedback">
+                <svg class="copy-btn-icon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>
+                <span data-i18n="copiedShort">Copied</span>
+              </span>
             </button>
           </div>
           <div class="share-message-preview" id="researchPackMessagePreview">
@@ -340,20 +435,119 @@
     </div>
   </div>
 
-  <div id="articleSelectModal" class="modal-overlay hidden">
-    <div class="modal modal-wide" role="dialog" aria-modal="true">
-      <div class="modal-title" data-i18n="selectArticlesForPack">Select articles for pack</div>
-      <div class="modal-body">
-        <div class="selection-toolbar">
-          <button id="selectAllBtn" class="btn btn-secondary btn-small" data-i18n="selectAll">Select all</button>
-          <button id="deselectAllBtn" class="btn btn-secondary btn-small" data-i18n="deselectAll">Deselect all</button>
-          <span id="selectionCount" class="status muted"></span>
+  <div id="articleSelectModal" class="modal-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="articleSelectTitle">
+    <div class="modal picker-sheet" role="document">
+      <div class="picker-sheet-inner">
+        <header class="picker-header">
+          <div class="picker-hero">
+            <span class="picker-hero-icon" data-icon="library" aria-hidden="true"></span>
+            <div class="picker-hero-text">
+              <span class="picker-kicker" data-i18n="selectArticlesKicker">For your research pack</span>
+              <h2 class="picker-title" id="articleSelectTitle" data-i18n="selectArticlesForPack">Select articles for pack</h2>
+              <div class="picker-source" id="articleSelectSource" dir="auto"></div>
+              <div class="picker-available" id="articleSelectAvailable"></div>
+            </div>
+          </div>
+        </header>
+
+        <div class="picker-body">
+          <label class="picker-search" data-icon="search" aria-hidden="true">
+            <input id="articleSelectSearch" type="search" class="input" autocomplete="off"
+              data-i18n-placeholder="pickerSearchPlaceholder" data-i18n-label="pickerSearchPlaceholder"
+              placeholder="Search articles..." aria-label="Search articles" />
+          </label>
+
+          <div class="picker-chips" id="pickerFilterChips" role="group" aria-label="Filter">
+            <button type="button" class="picker-chip active" data-filter="all" data-i18n="pickerFilterAll">All</button>
+            <button type="button" class="picker-chip" data-filter="notes" data-i18n="pickerFilterWithNotes">With notes</button>
+            <button type="button" class="picker-chip" data-filter="summary" data-i18n="pickerFilterWithAISummary">With AI summary</button>
+            <button type="button" class="picker-chip" data-filter="tags" data-i18n="pickerFilterWithTags">With tags</button>
+          </div>
+
+          <div class="picker-toolbar">
+            <span id="selectionCount" class="picker-count" role="status" aria-live="polite"></span>
+            <span class="picker-toolbar-actions">
+              <button id="selectAllBtn" type="button" class="picker-link-btn" data-i18n="selectAll">Select all</button>
+              <button id="deselectAllBtn" type="button" class="picker-link-btn hidden" data-i18n="pickerClearSelection">Clear selection</button>
+            </span>
+          </div>
+
+          <div id="articleSelectionList" class="picker-list" role="list"></div>
+
+          <div id="pickerEmptyState" class="picker-empty hidden"></div>
         </div>
-        <div id="articleSelectionList" class="article-selection-list"></div>
+
+        <footer class="picker-footer">
+          <button id="articleSelectConfirmBtn" type="button" class="btn btn-primary picker-cta" data-icon="send" data-i18n="createResearchPack">Create Research Pack</button>
+          <div class="picker-empty-hint" id="pickerEmptyHint" data-i18n="pickerEmptySelection">Select at least one article to create a pack</div>
+          <button id="articleSelectCancelBtn" type="button" class="btn btn-quiet picker-cancel" data-i18n="cancelButton">Cancel</button>
+        </footer>
       </div>
-      <div class="modal-actions">
-        <button id="articleSelectConfirmBtn" class="btn btn-primary" data-i18n="createResearchPack">Create Research Pack</button>
-        <button id="articleSelectCancelBtn" class="btn btn-quiet" data-i18n="cancelButton">Cancel</button>
+    </div>
+  </div>
+
+  <div id="whatsNewModal" class="modal-overlay whatsnew-overlay hidden" role="dialog" aria-modal="true" aria-labelledby="whatsNewTitle">
+    <div class="whatsnew-card" id="whatsNewCard">
+      <button type="button" id="whatsNewCloseBtn" class="whatsnew-close" data-i18n-title="close" title="Close" aria-label="Close"></button>
+      <div class="whatsnew-badge" data-icon="sparkles" aria-hidden="true"></div>
+      <h2 class="whatsnew-title" id="whatsNewTitle" data-i18n="whatsNewTitle">What's new in Article Saver</h2>
+      <p class="whatsnew-version">v1.2.0</p>
+      <p class="whatsnew-subtitle" data-i18n="whatsNewSubtitle">Sharing, research packs, and 20 interface languages</p>
+
+      <div class="whatsnew-hero">
+        <div class="whatsnew-hero-icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 1 1-9-9"></path><circle cx="12" cy="12" r="3"></circle><path d="M12 3v6"></path></svg>
+        </div>
+        <div>
+          <h3 class="whatsnew-hero-title" data-i18n="whatsNewHeroTitle">Share your research, privately</h3>
+          <p class="whatsnew-hero-copy" data-i18n="whatsNewHeroCopy">Share articles, collections, and custom Research Packs directly from Article Saver. Everything stays on your device — no account required.</p>
+        </div>
+      </div>
+
+      <div class="whatsnew-features">
+        <div class="whatsnew-feature">
+          <div class="whatsnew-feature-icon" data-icon="send" aria-hidden="true"></div>
+          <div>
+            <h4 class="whatsnew-feature-title" data-i18n="whatsNewFeatureShareTitle">Share anything</h4>
+            <p class="whatsnew-feature-copy" data-i18n="whatsNewFeatureShareCopy">Send a single article, a whole collection, or a custom reading pack — with notes, tags, and highlights.</p>
+          </div>
+        </div>
+        <div class="whatsnew-feature">
+          <div class="whatsnew-feature-icon" data-icon="folder" aria-hidden="true"></div>
+          <div>
+            <h4 class="whatsnew-feature-title" data-i18n="whatsNewFeatureImportTitle">Import and merge without duplicates</h4>
+            <p class="whatsnew-feature-copy" data-i18n="whatsNewFeatureImportCopy">Open shared files with a clear preview, then merge updates into your existing collections without losing anything.</p>
+          </div>
+        </div>
+        <div class="whatsnew-feature">
+          <div class="whatsnew-feature-icon" data-icon="shield-check" aria-hidden="true"></div>
+          <div>
+            <h4 class="whatsnew-feature-title" data-i18n="whatsNewFeaturePrivacyTitle">Local-first by design</h4>
+            <p class="whatsnew-feature-copy" data-i18n="whatsNewFeaturePrivacyCopy">Your library and everything you share stay on your device. No server, no account, no tracking.</p>
+          </div>
+        </div>
+        <div class="whatsnew-feature">
+          <div class="whatsnew-feature-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><path d="M2 12h20"></path><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
+          </div>
+          <div>
+            <h4 class="whatsnew-feature-title" data-i18n="whatsNewFeatureLangTitle">20 interface languages</h4>
+            <p class="whatsnew-feature-copy" data-i18n="whatsNewFeatureLangCopy">Use Article Saver in 20 languages, and AI chat replies in the language you selected.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="whatsnew-pack">
+        <div class="whatsnew-pack-mark" data-icon="book-open-check" aria-hidden="true"></div>
+        <p class="whatsnew-pack-note" data-i18n="whatsNewPackNote">A Research Pack bundles the articles you choose — notes, tags, and AI summaries included — in one portable file.</p>
+      </div>
+
+      <p class="whatsnew-langs" aria-hidden="true">English · עברית · 中文 · Español · العربية · 日本語 · 한국어 · Português</p>
+
+      <div class="whatsnew-actions">
+        <button type="button" id="whatsNewCta" class="btn btn-primary whatsnew-cta" data-i18n="whatsNewCtaPrimary">Try sharing</button>
+        <button type="button" id="whatsNewGotIt" class="btn btn-secondary whatsnew-secondary" data-i18n="whatsNewCtaSecondary">Got it</button>
+        <a id="whatsNewSeeAll" class="whatsnew-seeall" href="https://github.com/Barak-elisha/articles-extension#v120" target="_blank" rel="noopener noreferrer" data-i18n="whatsNewSeeAll">See all changes</a>
       </div>
     </div>
   </div>

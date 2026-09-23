@@ -18,7 +18,7 @@ A Chrome extension (Manifest V3, `version 1.2.0`) for saving articles to lists, 
 
 The extension name, Chrome toolbar title and description are in English. On a fresh installation, the interface starts in English with a left-to-right layout, English AI responses and English Excel headers. Dates follow the selected interface language. Automatic AI summaries are off by default; saving articles and taking notes do not require an API key.
 
-The interface is available in 20 languages: English, Hebrew, Chinese, Hindi, Spanish, Arabic, French, Portuguese, German, Italian, Russian, Dutch, Czech, Polish, Japanese, Korean, Turkish, Indonesian, Vietnamese and Thai. Hebrew enables right-to-left layout. An existing saved language choice is preserved. Article text remains in its original language.
+The interface is available in 20 languages: English, Hebrew, Chinese, Hindi, Spanish, Arabic, French, Portuguese, German, Italian, Russian, Dutch, Czech, Polish, Japanese, Korean, Turkish, Indonesian, Vietnamese and Thai. Hebrew and Arabic enable right-to-left layout. An existing saved language choice is preserved. Article text remains in its original language.
 
 The current release exports Excel workbooks; PDF export is not implemented.
 
@@ -119,7 +119,7 @@ An API key is required only for AI. The "Include an AI summary" checkbox is off 
 
 English is the default for every new installation and whenever a stored language setting is missing or unsupported. The extension does not automatically switch to the browser or operating-system language.
 
-To change the language, open **Settings → Interface language** and select any of the 20 supported languages. This preference is saved and controls interface labels, dates, AI response language and Excel headers. Hebrew enables right-to-left layout. Switching the interface language does not translate previously saved articles, notes or AI responses.
+To change the language, open **Settings → Interface language** and select any of the 20 supported languages. This preference is saved and controls interface labels, dates, AI response language and Excel headers. Hebrew and Arabic enable right-to-left layout. Switching the interface language does not translate previously saved articles, notes or AI responses.
 
 After updating an unpacked extension, click **Reload** on its card in `chrome://extensions` and reopen the panel to refresh its name, description and interface. Reloading preserves saved preferences.
 
@@ -313,6 +313,7 @@ By using this extension you acknowledge that:
 ## Changelog
 
 ### v1.2.0
+- **What's New notice** — After updating, the panel shows a one-time announcement of the new sharing and language features; dismiss it or jump straight into sharing.
 - **Sharing & Growth Loop** — Share collections, single articles, and custom Research Packs as portable `.articlesaver` packages.
 - **Native sharing** — Uses `navigator.share` with file support when available; universal download fallback (File System Access API or legacy `<a download>`); copy-to-clipboard sharing instructions.
 - **Local-first, privacy-preserving** — Packages generated and imported entirely locally; no Article Saver server involved; no accounts, no email infrastructure, no tracking.
