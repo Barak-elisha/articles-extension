@@ -861,6 +861,7 @@
 
     const title = document.createElement("button");
     title.className = "article-title";
+    title.setAttribute("dir", "auto");
     title.textContent = a.title || t("noTitle");
     title.title = t("openView");
     title.addEventListener("click", () => showDetail(a));
@@ -896,6 +897,7 @@
     articleInfo.appendChild(title);
     const source = document.createElement("div");
     source.className = "article-source";
+    source.setAttribute("dir", "auto");
     let host = "";
     try { host = new URL(a.url).hostname.replace(/^www\./, ""); } catch (_) {}
     const date = a.savedAt ? new Date(a.savedAt).toLocaleDateString(window.I18N.lang, { month: "short", day: "numeric" }) : "";
@@ -2232,8 +2234,8 @@
     const badgeIcon = packageType === "article" ? "bookmark-plus"
       : packageType === "research-pack" ? "book-open-check"
       : "folder";
-    const badgeName = itemName
-      || (packageType === "article" ? escapeHtml(t("noTitle"))
+    const badgeName = itemName ? escapeHtml(itemName)
+      : (packageType === "article" ? escapeHtml(t("noTitle"))
         : packageType === "research-pack" ? escapeHtml(t("researchPack"))
         : escapeHtml(t("researchPack")));
     targetContentEl.innerHTML =

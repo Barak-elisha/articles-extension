@@ -211,7 +211,7 @@ Scripts are loaded in `sidepanel.html` in this order (it matters): `jszip` → `
 
 `extractFromPage` runs inside the tab (via `chrome.scripting.executeScript`): title from `og:title` → `h1` → `document.title`, body from `article` → `main` → `#content` → `body`, stripping `script/style/nav/header/footer/form/...`.
 
-The extension requests HTTP/HTTPS host access for user-triggered article extraction. `tabs` supports selecting the last web tab while full-window mode is focused. It does not automatically scan browsing history; `storage` permission is unnecessary because data uses IndexedDB. When the focused tab is the extension's own side panel, `extractActiveTab` falls back to the most recently used HTTP tab, so saving an article works while the panel is focused.
+The extension requests HTTP/HTTPS host access for user-triggered article extraction. `tabs` supports selecting the last web tab while full-window mode is focused. It does not automatically scan browsing history. Article data uses IndexedDB; the `storage` permission is used only for the local “What's new” notice shown after an extension update. When the focused tab is the extension's own side panel, `extractActiveTab` falls back to the most recently used HTTP tab, so saving an article works while the panel is focused.
 
 ### IndexedDB schema (`article-saver-db`, version 2)
 
